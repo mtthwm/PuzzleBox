@@ -3,3 +3,4 @@
 
 # Team Members
 - Matthew Morales
+- Griffin Rodgers
