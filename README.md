@@ -4,3 +4,4 @@
 # Team Members
 - Matthew Morales
 - Griffin Rodgers
+- Casey Wolfe
