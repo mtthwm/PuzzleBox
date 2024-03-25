@@ -54,6 +54,63 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+enum PuzzleStateType {
+	Puzzle1,
+	Puzzle2,
+	Puzzle3,
+	GameEnd
+}
+
+// returns true when puzzle is solved
+int doPuzzle1() {
+	//static puzzle1StateType state;
+}
+
+int doPuzzle2() {
+	
+}
+
+int doPuzzle3() {
+	
+}
+
+void doGameEnd() {
+	
+}
+
+void playFanfare() {
+	
+}
+
+void init() {
+	
+	// none of this works yet
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+
+	//enable clock to timer 3
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+	
+	// set PWM mode 1 on channel 2
+	TIM3->CCMR1 &= ~(TIM_CCMR1_OC2M_Msk); // clear
+	TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC2M_Pos); // PWM mode 1
+	
+	//enable
+	TIM3->CCER |= TIM_CCER_CC2E;
+	
+	TIM3->PSC = (short)99; // divide clock to 8000 khz
+	TIM3->ARR = 100;
+	
+	// duty cycle
+	TIM3->CCR2 = 20;
+	
+	//preload
+	TIM3->CCMR1 |= TIM_CCMR1_OC2PE;
+	
+	// alternate function
+	GPIOC->AFR[0] &= ~GPIO_AFRL_AFRL7_Msk;
+	
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -85,6 +142,12 @@ int main(void)
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
 
+	
+	
+	
+	enum PuzzleStateType mainState = Puzzle1;
+	
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -92,6 +155,36 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+		
+		
+		
+		switch (mainState) {
+			case Puzzle1:
+				if (doPuzzle1()) {
+					playFanfare();
+					mainState = Puzzle2;
+				}
+				break;
+			
+			case Puzzle2:
+				if (doPuzzle2()) {
+					playFanfare();
+					mainState = Puzzle3;
+				}
+				break;
+				
+			case Puzzle3:
+				if (doPuzzle3()) {
+					playFanfare();
+					mainState = GameEnd;
+				}
+				break;
+			
+			case GameEnd:
+				doGameEnd();
+		}
+				
+		HAL_Delay(20);
 
     /* USER CODE BEGIN 3 */
   }
