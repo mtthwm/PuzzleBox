@@ -59,19 +59,20 @@ enum PuzzleStateType {
 	Puzzle2,
 	Puzzle3,
 	GameEnd
-}
+};
 
 // returns true when puzzle is solved
 int doPuzzle1() {
 	//static puzzle1StateType state;
+	return 0;
 }
 
 int doPuzzle2() {
-	
+	return 0;
 }
 
 int doPuzzle3() {
-	
+	return 0;
 }
 
 void doGameEnd() {
