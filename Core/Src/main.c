@@ -172,7 +172,7 @@ void playFanfare() {
 	
 }
 
-void init() {
+void pwmInit() {
 	
 	// none of this works yet
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -187,7 +187,7 @@ void init() {
 	//enable
 	TIM3->CCER |= TIM_CCER_CC2E;
 	
-	TIM3->PSC = (short)99; // divide clock to 8000 khz
+	TIM3->PSC = (short)2; // divide clock to 8000 khz
 	TIM3->ARR = 100;
 	
 	// duty cycle
@@ -197,8 +197,24 @@ void init() {
 	TIM3->CCMR1 |= TIM_CCMR1_OC2PE;
 	
 	// alternate function
-	GPIOC->AFR[0] &= ~GPIO_AFRL_AFRL7_Msk;
+	GPIOC->AFR[0] &= ~GPIO_AFRL_AFRL6_Msk;
 	
+}
+
+void playTone(uint16_t freq) {
+	uint16_t arr = 8000000 / (3 * freq);
+	TIM3->ARR = arr;
+	TIM3->CCR2 = arr / 2;
+}
+
+void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
+	for (int i = 0; i < length; i++) {
+		if (frequencies[i] != 0) {
+			playTone(frequencies[i]);
+		}
+		
+		HAL_Delay(durations[i]);
+	}
 }
 
 void config_adc () {
