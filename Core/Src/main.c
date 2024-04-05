@@ -175,17 +175,22 @@ void playFanfare() {
 void pwmInit() {
 	
 	// none of this works yet
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	GPIOA->MODER |= GPIO_MODER_MODER6_1; // Set PA6 to alternate function mode
+	GPIOA->MODER &= ~GPIO_MODER_MODER6_0;
+	// alternate function
+	GPIOA->AFR[0] |= 1 << GPIO_AFRL_AFRL6_Pos; // configure PA6 to AF1 which is TIM3_CH1
+	
 
 	//enable clock to timer 3
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	
 	// set PWM mode 1 on channel 2
-	TIM3->CCMR1 &= ~(TIM_CCMR1_OC2M_Msk); // clear
-	TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC2M_Pos); // PWM mode 1
+	TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M_Msk); // clear
+	TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC1M_Pos); // PWM mode 1
 	
 	//enable
-	TIM3->CCER |= TIM_CCER_CC2E;
+	TIM3->CCER |= TIM_CCER_CC1E;
 	
 	TIM3->PSC = (short)2; // divide clock to 8000 khz
 	TIM3->ARR = 100;
@@ -196,8 +201,7 @@ void pwmInit() {
 	//preload
 	TIM3->CCMR1 |= TIM_CCMR1_OC2PE;
 	
-	// alternate function
-	GPIOC->AFR[0] &= ~GPIO_AFRL_AFRL6_Msk;
+
 	
 }
 
@@ -272,7 +276,7 @@ int main(void)
   /* USER CODE BEGIN Init */
 	
 	// Enable the RCC clock to GPIOA
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	
 	config_red();
 	config_adc();
@@ -290,7 +294,10 @@ int main(void)
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
 
-	
+		uint16_t frequencies[3] = {200, 0, 200};
+    uint16_t durations[3] = {200, 200, 200};
+
+    playTune(frequencies, durations, 3);
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
@@ -331,7 +338,6 @@ int main(void)
 		}
 				
 		HAL_Delay(20);
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
