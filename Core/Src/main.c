@@ -175,31 +175,51 @@ void playFanfare() {
 void pwmInit() {
 	
 	// none of this works yet
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	GPIOA->MODER |= GPIO_MODER_MODER6_1; // Set PA6 to alternate function mode
-	GPIOA->MODER &= ~GPIO_MODER_MODER6_0;
+	//RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	//GPIOA->MODER |= GPIO_MODER_MODER6_1; // Set PA6 to alternate function mode
+	//GPIOA->MODER &= ~GPIO_MODER_MODER6_0;
 	// alternate function
-	GPIOA->AFR[0] |= 1 << GPIO_AFRL_AFRL6_Pos; // configure PA6 to AF1 which is TIM3_CH1
+	//GPIOA->AFR[0] |= 1 << GPIO_AFRL_AFRL6_Pos; // configure PA6 to AF1 which is TIM3_CH1
+	
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_TIM3_CLK_ENABLE();
+	
+	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_6,
+	GPIO_MODE_AF_PP,
+	GPIO_SPEED_FREQ_LOW,
+	GPIO_NOPULL,
+	GPIO_AF1_TIM3};
+	
+	HAL_GPIO_Init(GPIOA, &initStrPWM);
+	
+	TIM3 -> CCMR1 &= ~TIM_CCMR1_CC1S; // Clear CC1S aka set CC1S to 0b0000
+	//TIM3 -> CCMR1 &= ~TIM_CCMR1_CC2S; // Clear CC2S
+	TIM3 -> CCMR1 |= 6 << TIM_CCMR1_OC1M_Pos; // Set OC1M to PWM Output 2 mode (0b111)
+	//TIM3 -> CCMR1 |= (6 << 12); // Set OC2M to PWM Output 1 mode (0b110)
+	TIM3 -> CCMR1 |= TIM_CCMR1_OC1PE; // Preload enable channel 1
+	//TIM3 -> CCMR1 |= TIM_CCMR1_OC2PE; // Preload enable channel 2
+	TIM3 -> CCER |= TIM_CCER_CC1E; // Enable capture/compare for channel 1
+	//TIM3 -> CCER |= TIM_CCER_CC2E; // Enable capture/compare for channel 2
 	
 
 	//enable clock to timer 3
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+	//RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	
 	// set PWM mode 1 on channel 2
-	TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M_Msk); // clear
-	TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC1M_Pos); // PWM mode 1
+	//TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M_Msk); // clear
+	//TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC1M_Pos); // PWM mode 1
 	
 	//enable
-	TIM3->CCER |= TIM_CCER_CC1E;
+	//TIM3->CCER |= TIM_CCER_CC1E;
 	
 	TIM3->PSC = (short)2; // divide clock to 8000 khz
 	TIM3->ARR = 100;
 	
 	// duty cycle
-	TIM3->CCR2 = 20;
+	TIM3->CCR1 = 20;
 	
 	//preload
-	TIM3->CCMR1 |= TIM_CCMR1_OC2PE;
+	//TIM3->CCMR1 |= TIM_CCMR1_OC1PE;
 	
 
 	
@@ -208,7 +228,7 @@ void pwmInit() {
 void playTone(uint16_t freq) {
 	uint16_t arr = 8000000 / (3 * freq);
 	TIM3->ARR = arr;
-	TIM3->CCR2 = arr / 2;
+	TIM3->CCR1 = arr / 2;
 }
 
 void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
@@ -293,11 +313,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-
-		uint16_t frequencies[3] = {200, 0, 200};
-    uint16_t durations[3] = {200, 200, 200};
-
-    playTune(frequencies, durations, 3);
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
@@ -338,6 +353,10 @@ int main(void)
 		}
 				
 		HAL_Delay(20);
+		volatile uint16_t frequencies[3] = {200, 0, 200};
+		volatile uint16_t durations[3] = {500, 500, 500};
+
+		playTune(frequencies, durations, 3);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
