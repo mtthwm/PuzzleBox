@@ -54,6 +54,95 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
+////////////////// UART ////////////////////////////////////////////////////////////////////////
+#define RX_BUFF_SIZE 2
+
+static char rx_chars[RX_BUFF_SIZE];
+static int rx_i = 0;
+
+/**
+	* @brief Configures USART with PB10=RX, PB11=TX
+	*/
+void config_usart (uint32_t baudrate) {
+	// Set the mode of the GPIO pins to use an alternate function
+	GPIOB->MODER &= ~(GPIO_MODER_MODER10_Msk);
+	GPIOB->MODER &= ~(GPIO_MODER_MODER11_Msk);
+	GPIOB->MODER |= (2 << GPIO_MODER_MODER10_Pos);
+	GPIOB->MODER |= (2 << GPIO_MODER_MODER11_Pos);
+
+	
+	// Set GPIO Pins PB10 and PB11 to use alternate function AF4: USART3
+	GPIOB->AFR[1] &= ~GPIO_AFRH_AFSEL10_Msk;
+	GPIOB->AFR[1] |= (GPIO_AF4_USART3 << GPIO_AFRH_AFSEL10_Pos); // TX
+	GPIOB->AFR[1] &= ~GPIO_AFRH_AFSEL11_Msk;
+	GPIOB->AFR[1] |= (GPIO_AF4_USART3 << GPIO_AFRH_AFSEL11_Pos); // RX
+	
+	// Enable USART TX and RX
+	USART3->CR1 |= USART_CR1_TE;
+	USART3->CR1 |= USART_CR1_RE;
+	
+	// Set the USART Baud Rate to 115200 bit/sec
+	USART3->BRR = (HAL_RCC_GetHCLKFreq()/baudrate);
+	
+	// Enable RXNE Interrupt
+	USART3->CR1 |= USART_CR1_RXNEIE;
+	
+	// Configure interrupt handler for RXNE
+	NVIC_EnableIRQ(USART3_4_IRQn);
+	
+	// Configure interrupt priorities
+	NVIC_SetPriority(USART3_4_IRQn, 1);
+	NVIC_SetPriority(SysTick_IRQn, 0);
+	
+	// Enable USART. Config vars become readonly!
+	USART3->CR1 |= USART_CR1_UE;
+}
+void usart_transmit_char (char c) {
+	int wait = 1;
+	while (wait) {
+		if ((USART3->ISR & USART_ISR_TXE_Msk)) {
+			wait = 0;
+		}
+	} // Wait until the register is empty for transmission
+
+	USART3->TDR = c;
+}
+void usart_transmit_str (char* s) {
+	int i = 0;
+	do {
+		usart_transmit_char(s[i]);
+		i++;
+	} while (s[i] != '\0');
+	
+	usart_transmit_char('\0');
+}
+void usart_transmit_int (uint16_t num) {
+	char buff[8] = {0,0,0,0,0,0,0,0};
+	int8_t i = 0;
+	while (num != 0 && i < 8) {
+		buff[i] = (num % 10) + 48;
+		num = num / 10;
+		i++;
+	}
+	
+	for (int8_t i = 7; i > -1; i--) {
+		usart_transmit_char(buff[i]);
+	}
+	
+	usart_transmit_char('\n');
+}
+void USART3_4_IRQHandler () {
+	char received = USART3->RDR;
+	if (rx_i >= RX_BUFF_SIZE || rx_i < 0) {
+		return;
+	}
+	rx_chars[rx_i] = received;
+	rx_i++;
+}
+////////////////////////////////////////////////////////////////////////////////////////
+
+
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
 	GPIOC->MODER |= GPIO_MODER_MODER6_0;
@@ -148,10 +237,8 @@ enum PuzzleStateType {
 
 // returns true when puzzle is solved
 int doPuzzle1() {
-	if (ADC1->DR > 5) {
-		toggle_red(1);
-	} else {
-		toggle_red(0);
+	if (HAL_GetTick() % 100 == 0) {
+		usart_transmit_int(ADC1->DR);
 	}
 	return 0;
 }
@@ -214,14 +301,15 @@ void config_adc () {
 	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
 	// Start calibration
 	ADC1->CR |= ADC_CR_ADCAL;
-		
+			
 	// Wait until the calibration bit is reset.
 	while (ADC1->CR & ADC_CR_ADCAL_Msk) {
 		HAL_Delay(1);
 	}
-	
+		
 	// Enable the ADC
 	ADC1->CR |= ADC_CR_ADEN;
+	RCC->APB1ENR |= RCC_APB1ENR_USART3EN;	
 	
 	// Wait until the ADC is ready
 	while (!(ADC1->ISR & ADC_ISR_ADRDY)) {
@@ -250,12 +338,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-	
-	// Enable the RCC clock to GPIOA
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	
-	config_red();
-	config_adc();
 
   /* USER CODE END Init */
 
@@ -268,12 +350,32 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-
-	
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
+	// Enable the RCC clocks
+	__HAL_RCC_USART3_CLK_ENABLE();
+
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	
+	config_red();
+	config_blue();
+	config_green();
+	config_orange();
+	
+	config_usart(115200);
+
+	usart_transmit_str("USART READY!\n");
+	if (ADC1->DR == 0) {
+		usart_transmit_str("BRUH");
+	}
+	usart_transmit_int(ADC1->DR);
+	
+	toggle_blue(2);
+
 
   /* USER CODE END 2 */
 
@@ -281,8 +383,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-		
+    /* USER CODE END WHILE */		
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
