@@ -148,19 +148,28 @@ enum PuzzleStateType {
 	GameEnd
 };
 
-// returns true (1) when puzzle is solved
+/**
+ * Non-blocking function to handle Puzzle 1 - knock detection.
+ * Returns true if the puzzle is completed, false otherwise
+ *
+ * @return 1 if the puzzle is completed, 0 otherwise
+ */
 int doPuzzle1() {
-	// The range of time we will "accept" a user's 2nd knock
-	uint32_t MIN_TIME_KNOCKSET_1 = 800;
-	uint32_t MAX_TIME_KNOCKSET_1 = 1200;
+	// Function GLOBALS
+	const uint32_t MIN_TIME_KNOCKSET_1 = 800; // Min time allowed that we will accept 2nd knock
+	const uint32_t MAX_TIME_KNOCKSET_1 = 1200; // Max time allowed that we will accept 2nd knock
 	
-	// DELAY BETWEEN START OF PUZZLE AND TAKING USER INPUT
-	uint32_t INPUT_DELAY = 5000;
+	const uint32_t INPUT_DELAY = 5000; // Delay between the start of puzzle, and accepting user input
 	
 	uint32_t elapsedTime = 0;
-	static uint32_t promptDelayDone = 0;
+	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
+	static uint32_t promptRhythmPlayed = 0;
 	
-	// playRhythmPrompt(); or something
+	// Rhythm plays ONCE, disabled afterwards.
+	if (!promptRhythmPlayed){
+		// playRhythmPrompt(); or something
+		promptRhythmPlayed = 1;
+	}
 	
 	// Wait a certain amount of time before taking user-input
 	secondTime = HAL_GetTick();
@@ -175,16 +184,24 @@ int doPuzzle1() {
 		case 0: // no knocks yet
 			break;
 		
+		///////////////////
+		// TODO: Multiple "visits" to case 1 will reset firstTime every time
+		// Idea: much like `promptRhythmPlayed`, we make a flag to see if it was done already?
+		///////////////////
 		case 1: // First knock
 			firstTime = HAL_GetTick();
 			break;
 		
+		///////////////////
+		// TODO: If the alapsed time exceeds MAX_TIME_KNOCKSET_1, reset back to 0 knocks?
+		///////////////////
 		case 2: // Second knock
 			secondTime = HAL_GetTick();
 		  elapsedTime = secondTime - firstTime;
 		
 			// Second knock was ~1 second after first (400 ms of room)
-			if (elapsedTime >= 800 && elapsedTime <= 1200)
+			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
+				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
 				return 1;
 			else{ // Soft reset, user must try rhythm again
 				knockCount = 0;
@@ -323,6 +340,11 @@ int main(void)
   {
     /* USER CODE END WHILE */
 		
+		////////////////////////
+		// TODO: Indicate different puzzle stages with board LED's?
+		// E.g: puzzle1 = RED ON
+		//      puzzle2 = GREEN ON
+		////////////////////////
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
