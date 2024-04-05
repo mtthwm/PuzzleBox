@@ -42,7 +42,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint32_t firstTime = 0;
+uint32_t secondTime = 0;
+uint32_t knockCount = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -146,13 +148,54 @@ enum PuzzleStateType {
 	GameEnd
 };
 
-// returns true when puzzle is solved
+// returns true (1) when puzzle is solved
 int doPuzzle1() {
-	if (ADC1->DR > 5) {
-		toggle_red(1);
-	} else {
-		toggle_red(0);
-	}
+	// The range of time we will "accept" a user's 2nd knock
+	uint32_t MIN_TIME_KNOCKSET_1 = 800;
+	uint32_t MAX_TIME_KNOCKSET_1 = 1200;
+	
+	// DELAY BETWEEN START OF PUZZLE AND TAKING USER INPUT
+	uint32_t INPUT_DELAY = 5000;
+	
+	uint32_t elapsedTime = 0;
+	static uint32_t promptDelayDone = 0;
+	
+	// playRhythmPrompt(); or something
+	
+	// Wait a certain amount of time before taking user-input
+	secondTime = HAL_GetTick();
+	elapsedTime = secondTime - firstTime;
+	if (elapsedTime < INPUT_DELAY)
+		promptDelayDone = 1;
+	if (!promptDelayDone)
+		return 0;
+	
+	// User knocks now able to be accepted
+	switch(knockCount){
+		case 0: // no knocks yet
+			break;
+		
+		case 1: // First knock
+			firstTime = HAL_GetTick();
+			break;
+		
+		case 2: // Second knock
+			secondTime = HAL_GetTick();
+		  elapsedTime = secondTime - firstTime;
+		
+			// Second knock was ~1 second after first (400 ms of room)
+			if (elapsedTime >= 800 && elapsedTime <= 1200)
+				return 1;
+			else{ // Soft reset, user must try rhythm again
+				knockCount = 0;
+				firstTime = HAL_GetTick();
+				secondTime = 0;
+			}
+			
+			default:
+				knockCount = 0;
+		};
+				
 	return 0;
 }
 
