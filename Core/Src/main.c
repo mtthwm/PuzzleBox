@@ -209,7 +209,11 @@ void playTone(uint16_t freq) {
 
 void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
 	for (int i = 0; i < length; i++) {
-		if (frequencies[i] != 0) {
+		if (frequencies[i] == 0) {
+			TIM3->CR1 &= ~TIM_CR1_CEN;  // stop the timer
+		}
+		else {
+			TIM3->CR1 |= TIM_CR1_CEN;  // start the timer
 			playTone(frequencies[i]);
 		}
 		
@@ -272,6 +276,7 @@ int main(void)
 	
 	config_red();
 	config_adc();
+	pwmInit();
 
   /* USER CODE END Init */
 
