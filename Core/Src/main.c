@@ -228,6 +228,11 @@ void toggle_green (char mode) {
 	}
 }
 
+#define KNOCK_THRESHOLD 22
+
+static volatile uint16_t knockCount = 0;
+static uint32_t lastKnockTransmissionTime;
+
 enum PuzzleStateType {
 	Puzzle1,
 	Puzzle2,
@@ -235,11 +240,27 @@ enum PuzzleStateType {
 	GameEnd
 };
 
+void handleKnocks () {
+	static uint8_t debouncer = 0;
+	debouncer <<= 1;
+	
+	if (ADC1->DR > KNOCK_THRESHOLD) {
+		debouncer |= 1;
+	}
+	
+	if (debouncer == 0x03) {
+		knockCount++;
+	}
+	
+	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
+		usart_transmit_int(knockCount);
+		lastKnockTransmissionTime = HAL_GetTick();
+	}
+}
+
 // returns true when puzzle is solved
 int doPuzzle1() {
-	if (HAL_GetTick() % 100 == 0) {
-		usart_transmit_int(ADC1->DR);
-	}
+	handleKnocks();
 	return 0;
 }
 
@@ -297,8 +318,8 @@ void config_adc () {
 	ADC1->CFGR1 |= 2 << ADC_CFGR1_RES_Pos;
 	ADC1->CFGR1 |= ADC_CFGR1_CONT;
 	ADC1->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
-	// Set ADC1 to use channel 10 (ADC_IN10 additional function)
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
+	// Set ADC1 to use channel 10 (ADC_IN0 additional function)
+	ADC1->CHSELR |= ADC_CHSELR_CHSEL0;
 	// Start calibration
 	ADC1->CR |= ADC_CR_ADCAL;
 			
@@ -366,16 +387,10 @@ int main(void)
 	config_green();
 	config_orange();
 	
+	config_adc();
 	config_usart(115200);
 
 	usart_transmit_str("USART READY!\n");
-	if (ADC1->DR == 0) {
-		usart_transmit_str("BRUH");
-	}
-	usart_transmit_int(ADC1->DR);
-	
-	toggle_blue(2);
-
 
   /* USER CODE END 2 */
 
@@ -410,7 +425,7 @@ int main(void)
 				doGameEnd();
 		}
 				
-		HAL_Delay(20);
+		HAL_Delay(1);
 
     /* USER CODE BEGIN 3 */
   }
