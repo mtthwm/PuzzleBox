@@ -62,21 +62,21 @@ static char rx_chars[RX_BUFF_SIZE];
 static int rx_i = 0;
 
 /**
-	* @brief Configures USART with PB10=RX, PB11=TX
+	* @brief Configures USART with PC4=RX, PC5=TX
 	*/
 void config_usart (uint32_t baudrate) {
 	// Set the mode of the GPIO pins to use an alternate function
-	GPIOB->MODER &= ~(GPIO_MODER_MODER10_Msk);
-	GPIOB->MODER &= ~(GPIO_MODER_MODER11_Msk);
-	GPIOB->MODER |= (2 << GPIO_MODER_MODER10_Pos);
-	GPIOB->MODER |= (2 << GPIO_MODER_MODER11_Pos);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER4_Msk);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER5_Msk);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER4_Pos);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER5_Pos);
 
 	
-	// Set GPIO Pins PB10 and PB11 to use alternate function AF4: USART3
-	GPIOB->AFR[1] &= ~GPIO_AFRH_AFSEL10_Msk;
-	GPIOB->AFR[1] |= (GPIO_AF4_USART3 << GPIO_AFRH_AFSEL10_Pos); // TX
-	GPIOB->AFR[1] &= ~GPIO_AFRH_AFSEL11_Msk;
-	GPIOB->AFR[1] |= (GPIO_AF4_USART3 << GPIO_AFRH_AFSEL11_Pos); // RX
+	// Set GPIO Pins PC4 and PC5 to use alternate function AF1: USART3
+	GPIOC->AFR[1] &= ~GPIO_AFRL_AFSEL4_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL4_Pos); // TX
+	GPIOC->AFR[1] &= ~GPIO_AFRL_AFSEL5_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL5_Pos); // RX
 	
 	// Enable USART TX and RX
 	USART3->CR1 |= USART_CR1_TE;
@@ -309,13 +309,13 @@ void init() {
 	
 }
 
-void config_adc () {
+void config_knock_adc () {
 	// Set PA0 to analog mode
 	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
 	// Enable the clock to the ADC
 	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
-	// Set ADC1 to 8 bit resolution, continuous conversion mode, hardware triggers disabled.
-	ADC1->CFGR1 |= 2 << ADC_CFGR1_RES_Pos;
+	// Set ADC1 to 6 bit resolution, continuous conversion mode, hardware triggers disabled.
+	ADC1->CFGR1 |= 3 << ADC_CFGR1_RES_Pos;
 	ADC1->CFGR1 |= ADC_CFGR1_CONT;
 	ADC1->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
 	// Set ADC1 to use channel 10 (ADC_IN0 additional function)
@@ -387,7 +387,7 @@ int main(void)
 	config_green();
 	config_orange();
 	
-	config_adc();
+	config_knock_adc();
 	config_usart(115200);
 
 	usart_transmit_str("USART READY!\n");
