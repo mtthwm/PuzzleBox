@@ -73,10 +73,10 @@ void config_usart (uint32_t baudrate) {
 
 	
 	// Set GPIO Pins PC4 and PC5 to use alternate function AF1: USART3
-	GPIOC->AFR[1] &= ~GPIO_AFRL_AFSEL4_Msk;
-	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL4_Pos); // TX
-	GPIOC->AFR[1] &= ~GPIO_AFRL_AFSEL5_Msk;
-	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL5_Pos); // RX
+	GPIOC->AFR[0] &= ~GPIO_AFRL_AFSEL4_Msk;
+	GPIOC->AFR[0] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL4_Pos); // TX
+	GPIOC->AFR[0] &= ~GPIO_AFRL_AFSEL5_Msk;
+	GPIOC->AFR[0] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL5_Pos); // RX
 	
 	// Enable USART TX and RX
 	USART3->CR1 |= USART_CR1_TE;
