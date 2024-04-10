@@ -181,47 +181,41 @@ void pwmInit() {
 	// alternate function
 	//GPIOA->AFR[0] |= 1 << GPIO_AFRL_AFRL6_Pos; // configure PA6 to AF1 which is TIM3_CH1
 	
-	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
 	__HAL_RCC_TIM3_CLK_ENABLE();
 	
 	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_6,
 	GPIO_MODE_AF_PP,
 	GPIO_SPEED_FREQ_LOW,
 	GPIO_NOPULL,
-	GPIO_AF1_TIM3};
+	GPIO_AF0_TIM3};
 	
-	HAL_GPIO_Init(GPIOA, &initStrPWM);
+	HAL_GPIO_Init(GPIOC, &initStrPWM);
+	
+	//RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // initialize clock for TIM2
+	//RCC -> APB1ENR |= RCC_APB1ENR_TIM3EN; // initialize clock for TIM3
+	//TIM2 -> PSC = 8000 - 1; // Set PSC to divide clock by 8000
+	//TIM2 -> ARR = 250; // Set to 4hz = 250 ms
+	
+	TIM3 -> PSC = 2; // Set PSC to divide clock by 250 (equivalent to 1/32 of a ms)
+	TIM3 -> ARR = 100; // 40 * 1/32 = 1.25 ms (aka 800 hz)
+	
+	//TIM2 -> DIER |= TIM_DIER_UIE; // Enable UEV
+	//TIM2 -> CR1 |= TIM_CR1_CEN; // Enable TIM2 timer
 	
 	TIM3 -> CCMR1 &= ~TIM_CCMR1_CC1S; // Clear CC1S aka set CC1S to 0b0000
 	//TIM3 -> CCMR1 &= ~TIM_CCMR1_CC2S; // Clear CC2S
-	TIM3 -> CCMR1 |= 6 << TIM_CCMR1_OC1M_Pos; // Set OC1M to PWM Output 2 mode (0b111)
+	TIM3 -> CCMR1 |= TIM_CCMR1_OC1M; // Set OC1M to PWM Output 2 mode (0b111)
 	//TIM3 -> CCMR1 |= (6 << 12); // Set OC2M to PWM Output 1 mode (0b110)
 	TIM3 -> CCMR1 |= TIM_CCMR1_OC1PE; // Preload enable channel 1
 	//TIM3 -> CCMR1 |= TIM_CCMR1_OC2PE; // Preload enable channel 2
 	TIM3 -> CCER |= TIM_CCER_CC1E; // Enable capture/compare for channel 1
 	//TIM3 -> CCER |= TIM_CCER_CC2E; // Enable capture/compare for channel 2
 	
-
-	//enable clock to timer 3
-	//RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+	TIM3 -> CCR1 = 2; // Set duty cycle to 20% (of ARR)
+	//TIM3 -> CCR2 = 8; // Set duty cycle to 20% (of ARR)
 	
-	// set PWM mode 1 on channel 2
-	//TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M_Msk); // clear
-	//TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC1M_Pos); // PWM mode 1
-	
-	//enable
-	//TIM3->CCER |= TIM_CCER_CC1E;
-	
-	TIM3->PSC = (short)2; // divide clock to 8000 khz
-	TIM3->ARR = 100;
-	
-	// duty cycle
-	TIM3->CCR1 = 20;
-	
-	//preload
-	//TIM3->CCMR1 |= TIM_CCMR1_OC1PE;
-	
-
+	//TIM3 -> CR1 |= TIM_CR1_CEN; // Enable TIM3
 	
 }
 
@@ -353,10 +347,10 @@ int main(void)
 		}
 				
 		HAL_Delay(20);
-		volatile uint16_t frequencies[3] = {200, 0, 200};
-		volatile uint16_t durations[3] = {500, 500, 500};
+		uint16_t frequencies[10] = {196, 0, 146, 0, 146, 0, 164, 0, 146, 0};
+		uint16_t durations[10] = {500, 10, 250, 10, 250, 10, 250, 260, 500, 5000};
 
-		playTune(frequencies, durations, 3);
+		playTune(frequencies, durations, 10);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
