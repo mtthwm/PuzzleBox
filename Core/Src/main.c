@@ -309,36 +309,56 @@ void init() {
 	
 }
 
-void config_knock_adc () {
-	// Set PA0 to analog mode
-	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+enum adcUtil_resolution {
+	adcUtil_12bit,
+	adcUtil_10bit,
+	adcUtil_8bit,
+	adcUtil_6bit
+};
+
+void adcUtil_setup (ADC_TypeDef* adcInstance, enum adcUtil_resolution res) {
 	// Enable the clock to the ADC
 	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
-	// Set ADC1 to 6 bit resolution, continuous conversion mode, hardware triggers disabled.
-	ADC1->CFGR1 |= 3 << ADC_CFGR1_RES_Pos;
-	ADC1->CFGR1 |= ADC_CFGR1_CONT;
-	ADC1->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
-	// Set ADC1 to use channel 10 (ADC_IN0 additional function)
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL0;
+	
+	// Set ADC to appropriate bit resolution, continuous conversion mode, hardware triggers disabled.
+	adcInstance->CFGR1 |= res << ADC_CFGR1_RES_Pos;
+	adcInstance->CFGR1 |= ADC_CFGR1_CONT;
+	adcInstance->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
+}
+
+void adcUtil_calibrate (ADC_TypeDef* adcInstance) {
 	// Start calibration
-	ADC1->CR |= ADC_CR_ADCAL;
+	adcInstance->CR |= ADC_CR_ADCAL;
 			
 	// Wait until the calibration bit is reset.
-	while (ADC1->CR & ADC_CR_ADCAL_Msk) {
+	while (adcInstance->CR & ADC_CR_ADCAL_Msk) {
 		HAL_Delay(1);
 	}
 		
 	// Enable the ADC
-	ADC1->CR |= ADC_CR_ADEN;
-	RCC->APB1ENR |= RCC_APB1ENR_USART3EN;	
+	adcInstance->CR |= ADC_CR_ADEN;
 	
 	// Wait until the ADC is ready
-	while (!(ADC1->ISR & ADC_ISR_ADRDY)) {
+	while (!(adcInstance->ISR & ADC_ISR_ADRDY)) {
 		HAL_Delay(1);
 	}
 		
 	// Signal that we are ready for conversion
-	ADC1->CR |= ADC_CR_ADSTART;
+	adcInstance->CR |= ADC_CR_ADSTART;
+}
+
+
+void config_knock_adc () {
+	adcUtil_setup(ADC1, adcUtil_6bit);
+	
+	// Set PA0 to analog mode
+	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+
+	// Set ADC to use channel 0 (ADC_IN0 additional function)
+	ADC1->CHSELR |= ADC_CHSELR_CHSEL0;
+
+	adcUtil_calibrate(ADC1);
+	
 }
 
 /* USER CODE END 0 */
@@ -381,7 +401,7 @@ int main(void)
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
-	
+		
 	config_red();
 	config_blue();
 	config_green();
