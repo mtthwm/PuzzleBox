@@ -174,55 +174,33 @@ void playFanfare() {
 
 void pwmInit() {
 	
-	// none of this works yet
-	//RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	//GPIOA->MODER |= GPIO_MODER_MODER6_1; // Set PA6 to alternate function mode
-	//GPIOA->MODER &= ~GPIO_MODER_MODER6_0;
-	// alternate function
-	//GPIOA->AFR[0] |= 1 << GPIO_AFRL_AFRL6_Pos; // configure PA6 to AF1 which is TIM3_CH1
-	
-	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_TIM3_CLK_ENABLE();
 	
-	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_6,
+	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_5,
 	GPIO_MODE_AF_PP,
 	GPIO_SPEED_FREQ_LOW,
 	GPIO_NOPULL,
-	GPIO_AF0_TIM3};
+	GPIO_AF1_TIM3};
 	
-	HAL_GPIO_Init(GPIOC, &initStrPWM);
-	
-	//RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // initialize clock for TIM2
-	//RCC -> APB1ENR |= RCC_APB1ENR_TIM3EN; // initialize clock for TIM3
-	//TIM2 -> PSC = 8000 - 1; // Set PSC to divide clock by 8000
-	//TIM2 -> ARR = 250; // Set to 4hz = 250 ms
+	HAL_GPIO_Init(GPIOB, &initStrPWM);
 	
 	TIM3 -> PSC = 2; // Set PSC to divide clock by 250 (equivalent to 1/32 of a ms)
 	TIM3 -> ARR = 100; // 40 * 1/32 = 1.25 ms (aka 800 hz)
 	
-	//TIM2 -> DIER |= TIM_DIER_UIE; // Enable UEV
-	//TIM2 -> CR1 |= TIM_CR1_CEN; // Enable TIM2 timer
+	TIM3 -> CCMR1 &= ~TIM_CCMR1_CC2S; // Clear CC2S aka set CC1S to 0b0000
+	TIM3 -> CCMR1 |= TIM_CCMR1_OC2M; // Set OC2M to PWM Output 2 mode (0b111)
+	TIM3 -> CCMR1 |= TIM_CCMR1_OC2PE; // Preload enable channel 2
+	TIM3 -> CCER |= TIM_CCER_CC2E; // Enable capture/compare for channel 2
 	
-	TIM3 -> CCMR1 &= ~TIM_CCMR1_CC1S; // Clear CC1S aka set CC1S to 0b0000
-	//TIM3 -> CCMR1 &= ~TIM_CCMR1_CC2S; // Clear CC2S
-	TIM3 -> CCMR1 |= TIM_CCMR1_OC1M; // Set OC1M to PWM Output 2 mode (0b111)
-	//TIM3 -> CCMR1 |= (6 << 12); // Set OC2M to PWM Output 1 mode (0b110)
-	TIM3 -> CCMR1 |= TIM_CCMR1_OC1PE; // Preload enable channel 1
-	//TIM3 -> CCMR1 |= TIM_CCMR1_OC2PE; // Preload enable channel 2
-	TIM3 -> CCER |= TIM_CCER_CC1E; // Enable capture/compare for channel 1
-	//TIM3 -> CCER |= TIM_CCER_CC2E; // Enable capture/compare for channel 2
-	
-	TIM3 -> CCR1 = 2; // Set duty cycle to 20% (of ARR)
-	//TIM3 -> CCR2 = 8; // Set duty cycle to 20% (of ARR)
-	
-	//TIM3 -> CR1 |= TIM_CR1_CEN; // Enable TIM3
-	
+	TIM3 -> CCR2 = 2; // Set duty cycle to 20% (of ARR)
+		
 }
 
 void playTone(uint16_t freq) {
 	uint16_t arr = 8000000 / (3 * freq);
 	TIM3->ARR = arr;
-	TIM3->CCR1 = arr / 2;
+	TIM3->CCR2 = arr / 2;
 }
 
 void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
