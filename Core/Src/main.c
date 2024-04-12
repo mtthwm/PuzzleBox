@@ -156,22 +156,25 @@ enum PuzzleStateType {
  */
 int doPuzzle1() {
 	// Function GLOBALS
-	const uint32_t MIN_TIME_KNOCKSET_1 = 800; // Min time allowed that we will accept 2nd knock
-	const uint32_t MAX_TIME_KNOCKSET_1 = 1200; // Max time allowed that we will accept 2nd knock
-	
 	const uint32_t INPUT_DELAY = 5000; // Delay between the start of puzzle, and accepting user input
+	const uint32_t MIN_TIME_KNOCKSET_1 = 1000; // MIN time allowed that we will accept 2nd knock
+	const uint32_t MAX_TIME_KNOCKSET_1 = 2000; // MAX time allowed that we will accept 2nd knock
 	
 	uint32_t elapsedTime = 0;
-	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
-	static uint32_t promptRhythmPlayed = 0;
 	
-	// Rhythm plays ONCE, disabled afterwards.
-	if (!promptRhythmPlayed){
-		// playRhythmPrompt(); or something
-		promptRhythmPlayed = 1;
+	// Function Non-blocking sentinels (track if something has occured or not)
+	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
+	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
+
+	
+	// Puzzle tune plays ONCE, disabled afterwards.
+	if (!promptTunePlayed){
+		firstTime = HAL_GetTick();
+		promptTunePlayed = 1;
+		// TODO: PLAY BUZZER TUNE HERE
 	}
 	
-	// Wait a certain amount of time before taking user-input
+	// Wait a certain amount of time before taking user-input (knocks)
 	secondTime = HAL_GetTick();
 	elapsedTime = secondTime - firstTime;
 	if (elapsedTime < INPUT_DELAY)
@@ -179,38 +182,52 @@ int doPuzzle1() {
 	if (!promptDelayDone)
 		return 0;
 	
-	// User knocks now able to be accepted
+	// PUZZLE PHASE - After buzzer plays and a short delay
+	// Note that the cases denote puzzle progress, rather than
+	// actual knocks received. See comments
 	switch(knockCount){
-		case 0: // no knocks yet
+		case 0:
 			break;
 		
-		///////////////////
-		// TODO: Multiple "visits" to case 1 will reset firstTime every time
-		// Idea: much like `promptRhythmPlayed`, we make a flag to see if it was done already?
-		///////////////////
-		case 1: // First knock
+		// FIRST KNOCK - Simply log the timestamp of first knock
+		case 1:
 			firstTime = HAL_GetTick();
+			knockCount++; // See next case
 			break;
 		
-		///////////////////
-		// TODO: If the alapsed time exceeds MAX_TIME_KNOCKSET_1, reset back to 0 knocks?
-		///////////////////
-		case 2: // Second knock
+		// WAIT PHASE -- wait for 2nd knock, or soft-reset puzzle if waiting too long
+		case 2:
+			secondTime = HAL_GetTick();
+			elapsedTime = secondTime - firstTime;
+			if (elapsedTime > MAX_TIME_KNOCKSET_1){
+				knockCount = 0;
+				firstTime = 0;
+				secondTime = 0;
+			}
+			break;
+		
+		// SECOND KNOCK - Check if it was within the range threshold.
+		// Do a soft-reset of the puzzle if it wasn't
+		case 3:
 			secondTime = HAL_GetTick();
 		  elapsedTime = secondTime - firstTime;
 		
-			// Second knock was ~1 second after first (400 ms of room)
 			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
 				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
-				return 1;
-			else{ // Soft reset, user must try rhythm again
+				return 1; // Success! Puzzle complete!
+			else{
 				knockCount = 0;
-				firstTime = HAL_GetTick();
+				firstTime = 0;
 				secondTime = 0;
 			}
 			
+			// Error - received too many knocks before we could even check!
 			default:
 				knockCount = 0;
+				firstTime = 0;
+				secondTime = 0;
+				promptDelayDone = 0;
+				promptTunePlayed = 0;
 		};
 				
 	return 0;
