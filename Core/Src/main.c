@@ -168,9 +168,6 @@ void doGameEnd() {
 	
 }
 
-void playFanfare() {
-	
-}
 
 void pwmInit() {
 	
@@ -215,6 +212,13 @@ void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
 		
 		HAL_Delay(durations[i]);
 	}
+}
+
+void playFanfare() {
+	uint16_t frequencies[] = {261, 329, 392, 523};
+	uint16_t durations[] = {200, 200, 200, 600};
+		
+	playTune(frequencies, durations, 4);
 }
 
 void config_adc () {
