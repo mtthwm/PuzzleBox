@@ -346,7 +346,10 @@ void adcUtil_calibrate (ADC_TypeDef* adcInstance) {
 	// Signal that we are ready for conversion
 	adcInstance->CR |= ADC_CR_ADSTART;
 }
-
+void adcUtil_enableChannel (uint8_t channelNumber) {
+	// Set ADC to use channel 10 (ADC_IN10 additional function)
+	ADC1->CHSELR |= (1 << channelNumber);
+}
 
 void config_knock_adc () {
 	adcUtil_setup(ADC1, adcUtil_6bit);
@@ -355,9 +358,8 @@ void config_knock_adc () {
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
 	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR1_Msk;
 
-	// Set ADC to use channel 9 (ADC_IN9 additional function)
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
-
+	adcUtil_enableChannel(10);
+	
 	adcUtil_calibrate(ADC1);
 }
 
