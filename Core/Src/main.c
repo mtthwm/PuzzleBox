@@ -66,17 +66,17 @@ static int rx_i = 0;
 	*/
 void config_usart (uint32_t baudrate) {
 	// Set the mode of the GPIO pins to use an alternate function
-	GPIOC->MODER &= ~(GPIO_MODER_MODER4_Msk);
-	GPIOC->MODER &= ~(GPIO_MODER_MODER5_Msk);
-	GPIOC->MODER |= (2 << GPIO_MODER_MODER4_Pos);
-	GPIOC->MODER |= (2 << GPIO_MODER_MODER5_Pos);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER10_Msk);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER11_Msk);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER10_Pos);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER11_Pos);
 
 	
 	// Set GPIO Pins PC4 and PC5 to use alternate function AF1: USART3
-	GPIOC->AFR[0] &= ~GPIO_AFRL_AFSEL4_Msk;
-	GPIOC->AFR[0] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL4_Pos); // TX
-	GPIOC->AFR[0] &= ~GPIO_AFRL_AFSEL5_Msk;
-	GPIOC->AFR[0] |= (GPIO_AF1_USART3 << GPIO_AFRL_AFSEL5_Pos); // RX
+	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL10_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL10_Pos); // TX
+	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL11_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL11_Pos); // RX
 	
 	// Enable USART TX and RX
 	USART3->CR1 |= USART_CR1_TE;
@@ -118,7 +118,7 @@ void usart_transmit_str (char* s) {
 	usart_transmit_char('\0');
 }
 void usart_transmit_int (uint16_t num) {
-	char buff[8] = {0,0,0,0,0,0,0,0};
+	char buff[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	int8_t i = 0;
 	while (num != 0 && i < 8) {
 		buff[i] = (num % 10) + 48;
@@ -251,11 +251,12 @@ void handleKnocks () {
 	if (debouncer == 0x03) {
 		knockCount++;
 	}
-	
+	/*
 	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
 		usart_transmit_int(knockCount);
 		lastKnockTransmissionTime = HAL_GetTick();
 	}
+	*/
 }
 
 // returns true when puzzle is solved
@@ -351,14 +352,13 @@ void adcUtil_calibrate (ADC_TypeDef* adcInstance) {
 void config_knock_adc () {
 	adcUtil_setup(ADC1, adcUtil_6bit);
 	
-	// Set PA0 to analog mode
+	// Set PB0 to analog mode
 	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
 
-	// Set ADC to use channel 0 (ADC_IN0 additional function)
+	// Set ADC to use channel 8 (ADC_IN8 additional function)
 	ADC1->CHSELR |= ADC_CHSELR_CHSEL0;
 
 	adcUtil_calibrate(ADC1);
-	
 }
 
 /* USER CODE END 0 */
@@ -419,7 +419,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */		
-		switch (mainState) {
+		/*switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
 					playFanfare();
@@ -444,8 +444,13 @@ int main(void)
 			case GameEnd:
 				doGameEnd();
 		}
+		*/
+		
 				
 		HAL_Delay(1);
+		
+		usart_transmit_int(ADC1->DR);
+		
 
     /* USER CODE BEGIN 3 */
   }
