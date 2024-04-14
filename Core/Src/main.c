@@ -72,7 +72,7 @@ void config_usart (uint32_t baudrate) {
 	GPIOC->MODER |= (2 << GPIO_MODER_MODER11_Pos);
 
 	
-	// Set GPIO Pins PC4 and PC5 to use alternate function AF1: USART3
+	// Set GPIO Pins PC10 and PC11 to use alternate function AF1: USART3
 	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL10_Msk;
 	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL10_Pos); // TX
 	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL11_Msk;
@@ -228,10 +228,11 @@ void toggle_green (char mode) {
 	}
 }
 
-#define KNOCK_THRESHOLD 22
+#define KNOCK_THRESH_LO 25
+#define KNOCK_THRESH_HI 35
 
 static volatile uint16_t knockCount = 0;
-static uint32_t lastKnockTransmissionTime;
+static uint32_t lastKnockTransmissionTime = 0;
 
 enum PuzzleStateType {
 	Puzzle1,
@@ -241,22 +242,20 @@ enum PuzzleStateType {
 };
 
 void handleKnocks () {
-	static uint8_t debouncer = 0;
+	static uint16_t debouncer = 0;
 	debouncer <<= 1;
 	
-	if (ADC1->DR > KNOCK_THRESHOLD) {
+	if (KNOCK_THRESH_LO > ADC1->DR || ADC1->DR > KNOCK_THRESH_HI) {
 		debouncer |= 1;
 	}
 	
-	if (debouncer == 0x03) {
+	if (debouncer == 0x7FFF) {
 		knockCount++;
 	}
-	/*
 	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
 		usart_transmit_int(knockCount);
 		lastKnockTransmissionTime = HAL_GetTick();
 	}
-	*/
 }
 
 // returns true when puzzle is solved
@@ -352,11 +351,12 @@ void adcUtil_calibrate (ADC_TypeDef* adcInstance) {
 void config_knock_adc () {
 	adcUtil_setup(ADC1, adcUtil_6bit);
 	
-	// Set PB0 to analog mode
-	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+	// Set PB1 to analog mode
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR1_Msk;
 
-	// Set ADC to use channel 8 (ADC_IN8 additional function)
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL0;
+	// Set ADC to use channel 9 (ADC_IN9 additional function)
+	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
 
 	adcUtil_calibrate(ADC1);
 }
@@ -419,7 +419,9 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */		
-		/*switch (mainState) {
+		
+		// usart_transmit_int(ADC1->DR);
+		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
 					playFanfare();
@@ -444,13 +446,9 @@ int main(void)
 			case GameEnd:
 				doGameEnd();
 		}
-		*/
 		
 				
-		HAL_Delay(1);
-		
-		usart_transmit_int(ADC1->DR);
-		
+		HAL_Delay(1);		
 
     /* USER CODE BEGIN 3 */
   }
