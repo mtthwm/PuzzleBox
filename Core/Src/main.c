@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "accel.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -253,10 +254,19 @@ int main(void)
 	
 	// Enable the RCC clock to GPIOA
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	
 	config_red();
+	config_green();
+	config_blue();
+	config_orange();
+	
 	config_adc();
 
+	initI2C();
+	
+	
+	
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -268,8 +278,20 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-
 	
+	HAL_Delay(1000);
+	
+	int accelCheckVal = accelCheckWhoAmI();
+	if (accelCheckVal < 0) {
+		toggle_red(1);
+	}
+	else if (accelCheckVal > 0) {
+		toggle_green(1);
+	}
+	else {
+		toggle_orange(1);
+	}
+	HAL_Delay(5000);
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
