@@ -3,6 +3,11 @@
 static const uint8_t ACCEL_ADDR = 0x68;
 static const uint8_t X_ADDR = 0x28;
 static const uint8_t Y_ADDR = 0x2A;
+static const uint8_t CFG_REG = 26;
+static const uint8_t ACCEL_CFG_REG = 28;
+static const uint8_t ACCEL_CFG2_REG = 29;
+static const uint8_t PWR_MGMT_REG = 107;
+static const uint8_t PWR_MGMT2_REG = 108;
 
 
 void initI2C() {
@@ -50,6 +55,20 @@ void initI2C() {
 	I2C2->TIMINGR |= (0xF  << I2C_TIMINGR_SCLH_Pos);
 	I2C2->TIMINGR |= (0x2  << I2C_TIMINGR_SDADEL_Pos);
 	I2C2->TIMINGR |= (0x4  << I2C_TIMINGR_SCLDEL_Pos);
+	
+	
+	////////debug
+	/*
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	// output mode on pin C0
+	GPIOC->MODER &= ~GPIO_MODER_MODER0_Msk;
+	GPIOC->MODER |= GPIO_MODER_MODER0_0;
+	
+	// start pins B14 and C0 high
+	//GPIOB->ODR |= GPIO_ODR_14;
+	//GPIOC->ODR |= GPIO_ODR_0;
+	*/
+	///////////
 	
 	// lastly, enable the I2C
 	I2C2->CR1 |= I2C_CR1_PE;
@@ -147,12 +166,6 @@ static uint8_t sendI2CQuery(uint8_t address, uint8_t request, uint8_t numBytes, 
 int accelCheckWhoAmI() {
 	uint8_t data = 0;
 	
-	//readI2CBytes(ACCEL_ADDR, 1, &data);
-	sendI2CStop();
-	
-	
-	
-	//for (int i = 0; i < 128; 
 	if (!sendI2CQuery(ACCEL_ADDR, 0x75, 1, &data)) {
 		return -1;
 	}
@@ -162,5 +175,37 @@ int accelCheckWhoAmI() {
 	}
 	
 	return 0;
+}
+
+
+int accelSetupRegisters() {
+	uint8_t RESET[] = {PWR_MGMT_REG, 0x80}; // reset!
+	if (!sendI2CBytes(ACCEL_ADDR, 2, RESET)) {
+		return 0;
+	}
+	sendI2CStop();
+	
+	HAL_Delay(50); // ensure reset I guess
+	
+	uint8_t PWR_MGMT2[] = {PWR_MGMT2_REG, 0x07}; // accelerometer on, gyro off
+	if (!sendI2CBytes(ACCEL_ADDR, 2, PWR_MGMT2)) {
+		return 0;
+	}
+	sendI2CStop();
+	
+	uint8_t ACCEL_CFG[] = {ACCEL_CFG_REG, 0x08}; //4g range
+	if (!sendI2CBytes(ACCEL_ADDR, 2, ACCEL_CFG)) {
+		return 0;
+	}
+	sendI2CStop();
+	
+	uint8_t ACCEL_CFG2[] = {ACCEL_CFG2_REG, 0x06}; // 5hz low pass
+	if (!sendI2CBytes(ACCEL_ADDR, 2, ACCEL_CFG2)) {
+		return 0;
+	}
+	sendI2CStop();
+	
+	
+	return 1;
 }
 

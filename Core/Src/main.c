@@ -241,6 +241,8 @@ void config_adc () {
   */
 int main(void)
 {
+	
+	
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -249,6 +251,9 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+	
+	/* Configure the system clock */
+  SystemClock_Config();
 
   /* USER CODE BEGIN Init */
 	
@@ -269,8 +274,7 @@ int main(void)
 	
   /* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+  
 
   /* USER CODE BEGIN SysInit */
 
@@ -278,19 +282,34 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+	toggle_blue(1);
 	
 	HAL_Delay(1000);
+	toggle_blue(0);
 	
+	accelCheckWhoAmI(); // DO NOT DELETE. sends a message to reset everything
 	int accelCheckVal = accelCheckWhoAmI();
 	if (accelCheckVal < 0) {
 		toggle_red(1);
+		while(1);
 	}
 	else if (accelCheckVal > 0) {
 		toggle_green(1);
 	}
 	else {
 		toggle_orange(1);
+		while(1);
 	}
+	
+	/*
+	if(!accelSetupRegisters()) {
+		toggle_red(1);
+		while(1);
+	}
+	*/
+	accelSetupRegisters();
+	
+	toggle_blue(1);
 	HAL_Delay(5000);
 	
 	
