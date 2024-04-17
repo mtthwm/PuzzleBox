@@ -245,7 +245,7 @@ uint32_t secondTime;
  */
 int getKnockTiming() {
 	// Function GLOBALS
-	const uint32_t INPUT_DELAY = 3000; // Delay between the start of puzzle, and accepting user input
+	const uint32_t INPUT_DELAY = 5000; // Delay between the start of puzzle, and accepting user input
 	const uint32_t MIN_TIME_KNOCKSET_1 = 0; // MIN time allowed that we will accept 2nd knock
 	const uint32_t MAX_TIME_KNOCKSET_1 = 2000; // MAX time allowed that we will accept 2nd knock
 	
@@ -264,15 +264,17 @@ int getKnockTiming() {
 		// TODO: PLAY BUZZER TUNE HERE
 	}
 	
-	// Wait a certain amount of time before taking user-input (knocks)
-	secondTime = HAL_GetTick();
-	elapsedTime = secondTime - firstTime;
-	if (elapsedTime >= INPUT_DELAY) {
-		promptDelayDone = 1;
+	if (!promptDelayDone) {
+		// Wait a certain amount of time before taking user-input (knocks)
+		secondTime = HAL_GetTick();
+		elapsedTime = secondTime - firstTime;
+		if (elapsedTime >= INPUT_DELAY) {
+			knockCount = 0;
+			promptDelayDone = 1;
+		} else {
+			return 0;
+		}
 	}
-	
-	if (!promptDelayDone)
-		return 0;
 	
 	toggle_orange(1);
 	
@@ -291,12 +293,15 @@ int getKnockTiming() {
 			}
 			// WAIT PHASE - Soft reset if waiting for 2nd knock goes over MAX threshold
 			else {
+				toggle_red(1);
 				secondTime = HAL_GetTick();
 				elapsedTime = secondTime - firstTime;
 				if (elapsedTime > MAX_TIME_KNOCKSET_1){
 					knockCount = 0;
 					firstTime = 0;
 					secondTime = 0;
+					promptDelayDone = 0;
+					promptTunePlayed = 0;
 					firstTimerTimed = 0;
 					toggle_orange(0);
 				}
@@ -310,11 +315,15 @@ int getKnockTiming() {
 		
 			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
 				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
+			{
+				toggle_green(1);
 				return 1; // Success! Puzzle complete!
-			else{
+			} else {
 				knockCount = 0;
 				firstTime = 0;
 				secondTime = 0;
+				promptDelayDone = 0;
+				promptTunePlayed = 0;
 				firstTimerTimed = 0;
 				toggle_orange(0);
 			}
@@ -353,18 +362,12 @@ void handleKnocks () {
 	if (debouncer == 0x7FFFFFFF) {
 		knockCount++;
 	}
-	
-	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
-		usart_transmit_int(knockCount);
-		lastKnockTransmissionTime = HAL_GetTick();
-	}
 }
 
 // returns true when puzzle is solved
 int doPuzzle1() {
 	handleKnocks();
 	return getKnockTiming();
-	return 0;
 }
 
 int doPuzzle2() {
@@ -523,8 +526,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+			
+		if (HAL_GetTick() - lastKnockTransmissionTime >= 500) {
+			usart_transmit_int(knockCount);
+			lastKnockTransmissionTime = HAL_GetTick();
+		}
+	
     /* USER CODE END WHILE */
-
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
