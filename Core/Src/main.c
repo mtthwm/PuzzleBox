@@ -165,6 +165,7 @@ int doPuzzle1() {
 	// Function Non-blocking sentinels (track if something has occured or not)
 	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
 	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
+	static uint32_t firstTimerTimed = 0;
 
 	
 	// Puzzle tune plays ONCE, disabled afterwards.
@@ -177,40 +178,40 @@ int doPuzzle1() {
 	// Wait a certain amount of time before taking user-input (knocks)
 	secondTime = HAL_GetTick();
 	elapsedTime = secondTime - firstTime;
-	if (elapsedTime < INPUT_DELAY)
+	if (elapsedTime >= INPUT_DELAY)
 		promptDelayDone = 1;
 	if (!promptDelayDone)
 		return 0;
 	
 	// PUZZLE PHASE - After buzzer plays and a short delay
-	// Note that the cases denote puzzle progress, rather than
-	// actual knocks received. See comments
 	switch(knockCount){
 		case 0:
 			break;
 		
 		// FIRST KNOCK - Simply log the timestamp of first knock
 		case 1:
-			firstTime = HAL_GetTick();
-			knockCount++; // See next case
-			break;
-		
-		// WAIT PHASE -- wait for 2nd knock, or soft-reset puzzle if waiting too long
-		case 2:
-			secondTime = HAL_GetTick();
-			elapsedTime = secondTime - firstTime;
-			if (elapsedTime > MAX_TIME_KNOCKSET_1){
-				knockCount = 0;
-				firstTime = 0;
-				secondTime = 0;
+			if (!firstTimerTimed){
+				firstTime = HAL_GetTick();
+				firstTimerTimed = 1;
+			}
+			// WAIT PHASE - Soft reset if waiting for 2nd knock goes over MAX threshold
+			else{
+				secondTime = HAL_GetTick();
+				elapsedTime = secondTime - firstTime;
+				if (elapsedTime > MAX_TIME_KNOCKSET_1){
+					knockCount = 0;
+					firstTime = 0;
+					secondTime = 0;
+					firstTimerTimed = 0;
+				}
 			}
 			break;
 		
 		// SECOND KNOCK - Check if it was within the range threshold.
-		// Do a soft-reset of the puzzle if it wasn't
-		case 3:
+		// Do a soft-reset of the puzzle if it wasn't.
+		case 2:
 			secondTime = HAL_GetTick();
-		  elapsedTime = secondTime - firstTime;
+		  	elapsedTime = secondTime - firstTime;
 		
 			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
 				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
@@ -219,6 +220,7 @@ int doPuzzle1() {
 				knockCount = 0;
 				firstTime = 0;
 				secondTime = 0;
+				firstTimerTimed = 0;
 			}
 			
 			// Error - received too many knocks before we could even check!
@@ -228,8 +230,8 @@ int doPuzzle1() {
 				secondTime = 0;
 				promptDelayDone = 0;
 				promptTunePlayed = 0;
+				firstTimerTimed = 0;
 		};
-				
 	return 0;
 }
 
