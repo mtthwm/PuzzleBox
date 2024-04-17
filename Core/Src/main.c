@@ -54,6 +54,95 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
+////////////////// UART ////////////////////////////////////////////////////////////////////////
+#define RX_BUFF_SIZE 2
+
+static char rx_chars[RX_BUFF_SIZE];
+static int rx_i = 0;
+
+/**
+	* @brief Configures USART with PC4=RX, PC5=TX
+	*/
+void config_usart (uint32_t baudrate) {
+	// Set the mode of the GPIO pins to use an alternate function
+	GPIOC->MODER &= ~(GPIO_MODER_MODER10_Msk);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER11_Msk);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER10_Pos);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER11_Pos);
+
+	
+	// Set GPIO Pins PC10 and PC11 to use alternate function AF1: USART3
+	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL10_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL10_Pos); // TX
+	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL11_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL11_Pos); // RX
+	
+	// Enable USART TX and RX
+	USART3->CR1 |= USART_CR1_TE;
+	USART3->CR1 |= USART_CR1_RE;
+	
+	// Set the USART Baud Rate to 115200 bit/sec
+	USART3->BRR = (HAL_RCC_GetHCLKFreq()/baudrate);
+	
+	// Enable RXNE Interrupt
+	USART3->CR1 |= USART_CR1_RXNEIE;
+	
+	// Configure interrupt handler for RXNE
+	NVIC_EnableIRQ(USART3_4_IRQn);
+	
+	// Configure interrupt priorities
+	NVIC_SetPriority(USART3_4_IRQn, 1);
+	NVIC_SetPriority(SysTick_IRQn, 0);
+	
+	// Enable USART. Config vars become readonly!
+	USART3->CR1 |= USART_CR1_UE;
+}
+void usart_transmit_char (char c) {
+	int wait = 1;
+	while (wait) {
+		if ((USART3->ISR & USART_ISR_TXE_Msk)) {
+			wait = 0;
+		}
+	} // Wait until the register is empty for transmission
+
+	USART3->TDR = c;
+}
+void usart_transmit_str (char* s) {
+	int i = 0;
+	do {
+		usart_transmit_char(s[i]);
+		i++;
+	} while (s[i] != '\0');
+	
+	usart_transmit_char('\0');
+}
+void usart_transmit_int (uint16_t num) {
+	char buff[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	int8_t i = 0;
+	while (num != 0 && i < 8) {
+		buff[i] = (num % 10) + 48;
+		num = num / 10;
+		i++;
+	}
+	
+	for (int8_t i = 7; i > -1; i--) {
+		usart_transmit_char(buff[i]);
+	}
+	
+	usart_transmit_char('\n');
+}
+void USART3_4_IRQHandler () {
+	char received = USART3->RDR;
+	if (rx_i >= RX_BUFF_SIZE || rx_i < 0) {
+		return;
+	}
+	rx_chars[rx_i] = received;
+	rx_i++;
+}
+////////////////////////////////////////////////////////////////////////////////////////
+
+
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
 	GPIOC->MODER |= GPIO_MODER_MODER6_0;
@@ -139,6 +228,122 @@ void toggle_green (char mode) {
 	}
 }
 
+#define KNOCK_THRESH_LO 16
+#define KNOCK_THRESH_HI 18
+
+static volatile uint16_t knockCount = 0;
+static uint32_t lastKnockTransmissionTime = 0;
+
+uint32_t firstTime;
+uint32_t secondTime;
+
+/**
+ * Non-blocking function to handle Puzzle 1 - knock detection.
+ * Returns true if the puzzle is completed, false otherwise
+ *
+ * @return 1 if the puzzle is completed, 0 otherwise
+ */
+int getKnockTiming() {
+	// Function GLOBALS
+	const uint32_t INPUT_DELAY = 5000; // Delay between the start of puzzle, and accepting user input
+	const uint32_t MIN_TIME_KNOCKSET_1 = 0; // MIN time allowed that we will accept 2nd knock
+	const uint32_t MAX_TIME_KNOCKSET_1 = 2000; // MAX time allowed that we will accept 2nd knock
+	
+	uint32_t elapsedTime = 0;
+	
+	// Function Non-blocking sentinels (track if something has occured or not)
+	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
+	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
+	static uint32_t firstTimerTimed = 0;
+
+	
+	// Puzzle tune plays ONCE, disabled afterwards.
+	if (!promptTunePlayed){
+		firstTime = HAL_GetTick();
+		promptTunePlayed = 1;
+		// TODO: PLAY BUZZER TUNE HERE
+	}
+	
+	if (!promptDelayDone) {
+		// Wait a certain amount of time before taking user-input (knocks)
+		secondTime = HAL_GetTick();
+		elapsedTime = secondTime - firstTime;
+		if (elapsedTime >= INPUT_DELAY) {
+			knockCount = 0;
+			promptDelayDone = 1;
+		} else {
+			return 0;
+		}
+	}
+	
+	toggle_orange(1);
+	
+	// PUZZLE PHASE - After buzzer plays and a short delay
+	// Note that the cases denote puzzle progress, rather than
+	// actual knocks received. See comments
+	switch(knockCount){
+		case 0:
+			break;
+		
+		// FIRST KNOCK - Simply log the timestamp of first knock
+		case 1:
+			if (!firstTimerTimed){
+				firstTime = HAL_GetTick();
+				firstTimerTimed = 1;
+			}
+			// WAIT PHASE - Soft reset if waiting for 2nd knock goes over MAX threshold
+			else {
+				toggle_red(1);
+				secondTime = HAL_GetTick();
+				elapsedTime = secondTime - firstTime;
+				if (elapsedTime > MAX_TIME_KNOCKSET_1){
+					knockCount = 0;
+					firstTime = 0;
+					secondTime = 0;
+					promptDelayDone = 0;
+					promptTunePlayed = 0;
+					firstTimerTimed = 0;
+					toggle_orange(0);
+				}
+			}
+			break;
+		
+		// WAIT PHASE -- wait for 2nd knock, or soft-reset puzzle if waiting too long
+		case 2:
+			secondTime = HAL_GetTick();
+		  elapsedTime = secondTime - firstTime;
+		
+			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
+				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
+			{
+				toggle_green(1);
+				return 1; // Success! Puzzle complete!
+			} else {
+				knockCount = 0;
+				firstTime = 0;
+				secondTime = 0;
+				promptDelayDone = 0;
+				promptTunePlayed = 0;
+				firstTimerTimed = 0;
+				toggle_orange(0);
+			}
+			break;
+			
+			// Error - received too many knocks before we could even check!
+		default:
+			toggle_red(1);
+			knockCount = 0;
+			firstTime = 0;
+			secondTime = 0;
+			promptDelayDone = 0;
+			promptTunePlayed = 0;
+			firstTimerTimed = 0;
+			toggle_orange(0);
+	};
+				
+	return 0;
+}
+
 enum PuzzleStateType {
 	Puzzle1,
 	Puzzle2,
@@ -146,14 +351,23 @@ enum PuzzleStateType {
 	GameEnd
 };
 
+void handleKnocks () {
+	static uint32_t debouncer = 0;
+	debouncer <<= 1;
+	
+	if (KNOCK_THRESH_LO > ADC1->DR || ADC1->DR > KNOCK_THRESH_HI) {
+		debouncer |= 1;
+	}
+	
+	if (debouncer == 0x7FFFFFFF) {
+		knockCount++;
+	}
+}
+
 // returns true when puzzle is solved
 int doPuzzle1() {
-	if (ADC1->DR > 5) {
-		toggle_red(1);
-	} else {
-		toggle_red(0);
-	}
-	return 0;
+	handleKnocks();
+	return getKnockTiming();
 }
 
 int doPuzzle2() {
@@ -221,35 +435,58 @@ void playFanfare() {
 	playTune(frequencies, durations, 4);
 }
 
-void config_adc () {
-	// Set PA0 to analog mode
-	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+enum adcUtil_resolution {
+	adcUtil_12bit,
+	adcUtil_10bit,
+	adcUtil_8bit,
+	adcUtil_6bit
+};
+
+void adcUtil_setup (ADC_TypeDef* adcInstance, enum adcUtil_resolution res) {
 	// Enable the clock to the ADC
 	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
-	// Set ADC1 to 8 bit resolution, continuous conversion mode, hardware triggers disabled.
-	ADC1->CFGR1 |= 2 << ADC_CFGR1_RES_Pos;
-	ADC1->CFGR1 |= ADC_CFGR1_CONT;
-	ADC1->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
-	// Set ADC1 to use channel 10 (ADC_IN10 additional function)
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
+	
+	// Set ADC to appropriate bit resolution, continuous conversion mode, hardware triggers disabled.
+	adcInstance->CFGR1 |= res << ADC_CFGR1_RES_Pos;
+	adcInstance->CFGR1 |= ADC_CFGR1_CONT;
+	adcInstance->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
+}
+
+void adcUtil_calibrate (ADC_TypeDef* adcInstance) {
 	// Start calibration
-	ADC1->CR |= ADC_CR_ADCAL;
-		
+	adcInstance->CR |= ADC_CR_ADCAL;
+			
 	// Wait until the calibration bit is reset.
-	while (ADC1->CR & ADC_CR_ADCAL_Msk) {
+	while (adcInstance->CR & ADC_CR_ADCAL_Msk) {
 		HAL_Delay(1);
 	}
-	
+		
 	// Enable the ADC
-	ADC1->CR |= ADC_CR_ADEN;
+	adcInstance->CR |= ADC_CR_ADEN;
 	
 	// Wait until the ADC is ready
-	while (!(ADC1->ISR & ADC_ISR_ADRDY)) {
+	while (!(adcInstance->ISR & ADC_ISR_ADRDY)) {
 		HAL_Delay(1);
 	}
 		
 	// Signal that we are ready for conversion
-	ADC1->CR |= ADC_CR_ADSTART;
+	adcInstance->CR |= ADC_CR_ADSTART;
+}
+void adcUtil_enableChannel (uint8_t channelNumber) {
+	// Set ADC to use channel 10 (ADC_IN10 additional function)
+	ADC1->CHSELR |= (1 << channelNumber);
+}
+
+void config_knock_adc () {
+	adcUtil_setup(ADC1, adcUtil_6bit);
+	
+	// Set PB1 to analog mode
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR1_Msk;
+
+	adcUtil_enableChannel(10);
+	
+	adcUtil_calibrate(ADC1);
 }
 
 /* USER CODE END 0 */
@@ -293,6 +530,22 @@ int main(void)
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
+	// Enable the RCC clocks
+	__HAL_RCC_USART3_CLK_ENABLE();
+
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+		
+	config_red();
+	config_blue();
+	config_green();
+	config_orange();
+	
+	config_knock_adc();
+	config_usart(115200);
+
+	usart_transmit_str("USART READY!\n");
 
   /* USER CODE END 2 */
 
@@ -300,8 +553,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+			
+		if (HAL_GetTick() - lastKnockTransmissionTime >= 500) {
+			usart_transmit_int(knockCount);
+			lastKnockTransmissionTime = HAL_GetTick();
+		}
+	
     /* USER CODE END WHILE */
-		
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
@@ -311,6 +569,7 @@ int main(void)
 				break;
 			
 			case Puzzle2:
+				toggle_blue(1);
 				if (doPuzzle2()) {
 					playFanfare();
 					mainState = Puzzle3;
@@ -327,6 +586,7 @@ int main(void)
 			case GameEnd:
 				doGameEnd();
 		}
+		
 				
 		HAL_Delay(20);
 		uint16_t frequencies[10] = {196, 0, 146, 0, 146, 0, 164, 0, 146, 0};
