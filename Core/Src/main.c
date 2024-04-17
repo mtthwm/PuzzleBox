@@ -228,11 +228,112 @@ void toggle_green (char mode) {
 	}
 }
 
-#define KNOCK_THRESH_LO 25
-#define KNOCK_THRESH_HI 35
+#define KNOCK_THRESH_LO 16
+#define KNOCK_THRESH_HI 18
 
 static volatile uint16_t knockCount = 0;
 static uint32_t lastKnockTransmissionTime = 0;
+
+uint32_t firstTime;
+uint32_t secondTime;
+
+/**
+ * Non-blocking function to handle Puzzle 1 - knock detection.
+ * Returns true if the puzzle is completed, false otherwise
+ *
+ * @return 1 if the puzzle is completed, 0 otherwise
+ */
+int getKnockTiming() {
+	// Function GLOBALS
+	const uint32_t INPUT_DELAY = 3000; // Delay between the start of puzzle, and accepting user input
+	const uint32_t MIN_TIME_KNOCKSET_1 = 0; // MIN time allowed that we will accept 2nd knock
+	const uint32_t MAX_TIME_KNOCKSET_1 = 2000; // MAX time allowed that we will accept 2nd knock
+	
+	uint32_t elapsedTime = 0;
+	
+	// Function Non-blocking sentinels (track if something has occured or not)
+	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
+	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
+	static uint32_t firstTimerTimed = 0;
+
+	
+	// Puzzle tune plays ONCE, disabled afterwards.
+	if (!promptTunePlayed){
+		firstTime = HAL_GetTick();
+		promptTunePlayed = 1;
+		// TODO: PLAY BUZZER TUNE HERE
+	}
+	
+	// Wait a certain amount of time before taking user-input (knocks)
+	secondTime = HAL_GetTick();
+	elapsedTime = secondTime - firstTime;
+	if (elapsedTime >= INPUT_DELAY) {
+		promptDelayDone = 1;
+	}
+	
+	if (!promptDelayDone)
+		return 0;
+	
+	toggle_orange(1);
+	
+	// PUZZLE PHASE - After buzzer plays and a short delay
+	// Note that the cases denote puzzle progress, rather than
+	// actual knocks received. See comments
+	switch(knockCount){
+		case 0:
+			break;
+		
+		// FIRST KNOCK - Simply log the timestamp of first knock
+		case 1:
+			if (!firstTimerTimed){
+				firstTime = HAL_GetTick();
+				firstTimerTimed = 1;
+			}
+			// WAIT PHASE - Soft reset if waiting for 2nd knock goes over MAX threshold
+			else {
+				secondTime = HAL_GetTick();
+				elapsedTime = secondTime - firstTime;
+				if (elapsedTime > MAX_TIME_KNOCKSET_1){
+					knockCount = 0;
+					firstTime = 0;
+					secondTime = 0;
+					firstTimerTimed = 0;
+					toggle_orange(0);
+				}
+			}
+			break;
+		
+		// WAIT PHASE -- wait for 2nd knock, or soft-reset puzzle if waiting too long
+		case 2:
+			secondTime = HAL_GetTick();
+		  elapsedTime = secondTime - firstTime;
+		
+			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
+				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
+				return 1; // Success! Puzzle complete!
+			else{
+				knockCount = 0;
+				firstTime = 0;
+				secondTime = 0;
+				firstTimerTimed = 0;
+				toggle_orange(0);
+			}
+			break;
+			
+			// Error - received too many knocks before we could even check!
+		default:
+			toggle_red(1);
+			knockCount = 0;
+			firstTime = 0;
+			secondTime = 0;
+			promptDelayDone = 0;
+			promptTunePlayed = 0;
+			firstTimerTimed = 0;
+			toggle_orange(0);
+	};
+				
+	return 0;
+}
 
 enum PuzzleStateType {
 	Puzzle1,
@@ -242,16 +343,17 @@ enum PuzzleStateType {
 };
 
 void handleKnocks () {
-	static uint16_t debouncer = 0;
+	static uint32_t debouncer = 0;
 	debouncer <<= 1;
 	
 	if (KNOCK_THRESH_LO > ADC1->DR || ADC1->DR > KNOCK_THRESH_HI) {
 		debouncer |= 1;
 	}
 	
-	if (debouncer == 0x7FFF) {
+	if (debouncer == 0x7FFFFFFF) {
 		knockCount++;
 	}
+	
 	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
 		usart_transmit_int(knockCount);
 		lastKnockTransmissionTime = HAL_GetTick();
@@ -261,6 +363,7 @@ void handleKnocks () {
 // returns true when puzzle is solved
 int doPuzzle1() {
 	handleKnocks();
+	return getKnockTiming();
 	return 0;
 }
 
@@ -420,9 +523,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */		
-		
-		// usart_transmit_int(ADC1->DR);
+    /* USER CODE END WHILE */
+
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
@@ -432,6 +534,7 @@ int main(void)
 				break;
 			
 			case Puzzle2:
+				toggle_blue(1);
 				if (doPuzzle2()) {
 					playFanfare();
 					mainState = Puzzle3;
