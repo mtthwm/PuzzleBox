@@ -54,6 +54,95 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
+////////////////// UART ////////////////////////////////////////////////////////////////////////
+#define RX_BUFF_SIZE 2
+
+static char rx_chars[RX_BUFF_SIZE];
+static int rx_i = 0;
+
+/**
+	* @brief Configures USART with PC4=RX, PC5=TX
+	*/
+void config_usart (uint32_t baudrate) {
+	// Set the mode of the GPIO pins to use an alternate function
+	GPIOC->MODER &= ~(GPIO_MODER_MODER10_Msk);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER11_Msk);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER10_Pos);
+	GPIOC->MODER |= (2 << GPIO_MODER_MODER11_Pos);
+
+	
+	// Set GPIO Pins PC10 and PC11 to use alternate function AF1: USART3
+	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL10_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL10_Pos); // TX
+	GPIOC->AFR[1] &= ~GPIO_AFRH_AFSEL11_Msk;
+	GPIOC->AFR[1] |= (GPIO_AF1_USART3 << GPIO_AFRH_AFSEL11_Pos); // RX
+	
+	// Enable USART TX and RX
+	USART3->CR1 |= USART_CR1_TE;
+	USART3->CR1 |= USART_CR1_RE;
+	
+	// Set the USART Baud Rate to 115200 bit/sec
+	USART3->BRR = (HAL_RCC_GetHCLKFreq()/baudrate);
+	
+	// Enable RXNE Interrupt
+	USART3->CR1 |= USART_CR1_RXNEIE;
+	
+	// Configure interrupt handler for RXNE
+	NVIC_EnableIRQ(USART3_4_IRQn);
+	
+	// Configure interrupt priorities
+	NVIC_SetPriority(USART3_4_IRQn, 1);
+	NVIC_SetPriority(SysTick_IRQn, 0);
+	
+	// Enable USART. Config vars become readonly!
+	USART3->CR1 |= USART_CR1_UE;
+}
+void usart_transmit_char (char c) {
+	int wait = 1;
+	while (wait) {
+		if ((USART3->ISR & USART_ISR_TXE_Msk)) {
+			wait = 0;
+		}
+	} // Wait until the register is empty for transmission
+
+	USART3->TDR = c;
+}
+void usart_transmit_str (char* s) {
+	int i = 0;
+	do {
+		usart_transmit_char(s[i]);
+		i++;
+	} while (s[i] != '\0');
+	
+	usart_transmit_char('\0');
+}
+void usart_transmit_int (uint16_t num) {
+	char buff[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	int8_t i = 0;
+	while (num != 0 && i < 8) {
+		buff[i] = (num % 10) + 48;
+		num = num / 10;
+		i++;
+	}
+	
+	for (int8_t i = 7; i > -1; i--) {
+		usart_transmit_char(buff[i]);
+	}
+	
+	usart_transmit_char('\n');
+}
+void USART3_4_IRQHandler () {
+	char received = USART3->RDR;
+	if (rx_i >= RX_BUFF_SIZE || rx_i < 0) {
+		return;
+	}
+	rx_chars[rx_i] = received;
+	rx_i++;
+}
+////////////////////////////////////////////////////////////////////////////////////////
+
+
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
 	GPIOC->MODER |= GPIO_MODER_MODER6_0;
@@ -139,6 +228,12 @@ void toggle_green (char mode) {
 	}
 }
 
+#define KNOCK_THRESH_LO 25
+#define KNOCK_THRESH_HI 35
+
+static volatile uint16_t knockCount = 0;
+static uint32_t lastKnockTransmissionTime = 0;
+
 enum PuzzleStateType {
 	Puzzle1,
 	Puzzle2,
@@ -146,13 +241,26 @@ enum PuzzleStateType {
 	GameEnd
 };
 
+void handleKnocks () {
+	static uint16_t debouncer = 0;
+	debouncer <<= 1;
+	
+	if (KNOCK_THRESH_LO > ADC1->DR || ADC1->DR > KNOCK_THRESH_HI) {
+		debouncer |= 1;
+	}
+	
+	if (debouncer == 0x7FFF) {
+		knockCount++;
+	}
+	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
+		usart_transmit_int(knockCount);
+		lastKnockTransmissionTime = HAL_GetTick();
+	}
+}
+
 // returns true when puzzle is solved
 int doPuzzle1() {
-	if (ADC1->DR > 5) {
-		toggle_red(1);
-	} else {
-		toggle_red(0);
-	}
+	handleKnocks();
 	return 0;
 }
 
@@ -201,35 +309,58 @@ void init() {
 	
 }
 
-void config_adc () {
-	// Set PA0 to analog mode
-	GPIOA->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+enum adcUtil_resolution {
+	adcUtil_12bit,
+	adcUtil_10bit,
+	adcUtil_8bit,
+	adcUtil_6bit
+};
+
+void adcUtil_setup (ADC_TypeDef* adcInstance, enum adcUtil_resolution res) {
 	// Enable the clock to the ADC
 	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
-	// Set ADC1 to 8 bit resolution, continuous conversion mode, hardware triggers disabled.
-	ADC1->CFGR1 |= 2 << ADC_CFGR1_RES_Pos;
-	ADC1->CFGR1 |= ADC_CFGR1_CONT;
-	ADC1->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
-	// Set ADC1 to use channel 10 (ADC_IN10 additional function)
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
+	
+	// Set ADC to appropriate bit resolution, continuous conversion mode, hardware triggers disabled.
+	adcInstance->CFGR1 |= res << ADC_CFGR1_RES_Pos;
+	adcInstance->CFGR1 |= ADC_CFGR1_CONT;
+	adcInstance->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
+}
+
+void adcUtil_calibrate (ADC_TypeDef* adcInstance) {
 	// Start calibration
-	ADC1->CR |= ADC_CR_ADCAL;
-		
+	adcInstance->CR |= ADC_CR_ADCAL;
+			
 	// Wait until the calibration bit is reset.
-	while (ADC1->CR & ADC_CR_ADCAL_Msk) {
+	while (adcInstance->CR & ADC_CR_ADCAL_Msk) {
 		HAL_Delay(1);
 	}
-	
+		
 	// Enable the ADC
-	ADC1->CR |= ADC_CR_ADEN;
+	adcInstance->CR |= ADC_CR_ADEN;
 	
 	// Wait until the ADC is ready
-	while (!(ADC1->ISR & ADC_ISR_ADRDY)) {
+	while (!(adcInstance->ISR & ADC_ISR_ADRDY)) {
 		HAL_Delay(1);
 	}
 		
 	// Signal that we are ready for conversion
-	ADC1->CR |= ADC_CR_ADSTART;
+	adcInstance->CR |= ADC_CR_ADSTART;
+}
+void adcUtil_enableChannel (uint8_t channelNumber) {
+	// Set ADC to use channel 10 (ADC_IN10 additional function)
+	ADC1->CHSELR |= (1 << channelNumber);
+}
+
+void config_knock_adc () {
+	adcUtil_setup(ADC1, adcUtil_6bit);
+	
+	// Set PB1 to analog mode
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR1_Msk;
+
+	adcUtil_enableChannel(10);
+	
+	adcUtil_calibrate(ADC1);
 }
 
 /* USER CODE END 0 */
@@ -250,12 +381,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-	
-	// Enable the RCC clock to GPIOA
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	
-	config_red();
-	config_adc();
 
   /* USER CODE END Init */
 
@@ -268,12 +393,26 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-
-	
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
+	// Enable the RCC clocks
+	__HAL_RCC_USART3_CLK_ENABLE();
+
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+		
+	config_red();
+	config_blue();
+	config_green();
+	config_orange();
+	
+	config_knock_adc();
+	config_usart(115200);
+
+	usart_transmit_str("USART READY!\n");
 
   /* USER CODE END 2 */
 
@@ -281,8 +420,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
+    /* USER CODE END WHILE */		
 		
+		// usart_transmit_int(ADC1->DR);
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
@@ -308,8 +448,9 @@ int main(void)
 			case GameEnd:
 				doGameEnd();
 		}
+		
 				
-		HAL_Delay(20);
+		HAL_Delay(1);		
 
     /* USER CODE BEGIN 3 */
   }
