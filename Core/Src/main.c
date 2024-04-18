@@ -268,9 +268,12 @@ int main(void)
 	
 	config_adc();
 
-	initI2C();
-	
-	
+	if(initAccelerometer()) {
+		while (1) {
+			toggle_red(2);
+			HAL_Delay(250);
+		}
+	}
 	
   /* USER CODE END Init */
 
@@ -350,7 +353,30 @@ int main(void)
 				doGameEnd();
 		}
 				
-		HAL_Delay(20);
+		HAL_Delay(250);
+		toggle_green(0);
+		toggle_blue(0);
+		toggle_red(0);
+		toggle_orange(0);
+		
+		
+		int axis = accelReadAxis();
+		if (axis < 0) {
+			//error
+			continue;
+		}
+		if (axis == 1) {
+			toggle_blue(1);
+		}
+		if (axis == 2) {
+			toggle_red(1);
+		}
+		if (axis == 3) {
+			toggle_orange(1);
+		}
+		if (axis == 4) {
+			toggle_green(1);
+		}
 
     /* USER CODE BEGIN 3 */
   }
