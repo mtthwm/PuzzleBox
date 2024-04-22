@@ -324,6 +324,7 @@ void adcUtil_setup (ADC_TypeDef* adcInstance, enum adcUtil_resolution res) {
 	adcInstance->CFGR1 |= res << ADC_CFGR1_RES_Pos;
 	adcInstance->CFGR1 |= ADC_CFGR1_CONT;
 	adcInstance->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
+	adcInstance->CFGR2 |= ADC_CFGR2_CKMODE_1;
 }
 
 void adcUtil_calibrate (ADC_TypeDef* adcInstance, char enableDMA) {
@@ -356,47 +357,38 @@ void adcUtil_enableChannel (ADC_TypeDef* adcInstance, uint8_t channelNumber) {
 	adcInstance->CHSELR |= (1 << channelNumber);
 }
 
-volatile uint16_t dmaUtil_buffer[1];
+static volatile uint16_t dmaUtil_buffer[2];
 void dmaUtil_configChannel () {
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 	
 	// Enable ADC to DMA remap on DMA channel
 	SYSCFG->CFGR1 &= ~SYSCFG_CFGR1_ADC_DMA_RMP;
 	
-	// Configure the registers to move data between
-	DMA1_Channel1->CPAR = (uint32_t) &(ADC1->DR);
-	DMA1_Channel1->CMAR = (uint32_t) dmaUtil_buffer;
-	
-	// Set memory transfer direction
-	DMA1_Channel1->CCR &= ~DMA_CCR_DIR;
-	
 	// Set memory size of our DMA transfers to 16 bit
-	DMA1_Channel1->CCR &= ~DMA_CCR_MSIZE;
 	DMA1_Channel1->CCR |= DMA_CCR_MSIZE_0;
 	
 	// Set peripheral register size of our DMA transfers to 16 bit
-	DMA1_Channel1->CCR &= ~DMA_CCR_PSIZE;
 	DMA1_Channel1->CCR |= DMA_CCR_PSIZE_0;
 	
 	// Set the memory address registers to increment after each read
 	DMA1_Channel1->CCR |= DMA_CCR_MINC;
-	// Set the peripheral address registers to NOT increment after each read
-	DMA1_Channel1->CCR &= ~DMA_CCR_PINC;
-	
-	// Set the number of data to transmit
-	DMA1_Channel1->CNDTR = 1;
 	
 	// Set circular mode
 	DMA1_Channel1->CCR |= DMA_CCR_CIRC;
 	
-	// Set mem2mem mode to off! This can't be used with circular mode
-	DMA1_Channel1->CCR &= DMA_CCR_MEM2MEM;
-	
 	// Set priority to high
-	DMA1_Channel1->CCR &= DMA_CCR_PL_Msk;
+	DMA1_Channel1->CCR |= DMA_CCR_PL_1;
+	
+	// Configure the registers to move data between
+	DMA1_Channel1->CPAR = (uint32_t) &(ADC1->DR);
+	DMA1_Channel1->CMAR = (uint32_t) dmaUtil_buffer;
+	
+	// Set the number of data to transmit
+	DMA1_Channel1->CNDTR = 2;
 	
 	// Activate the channel
 	DMA1_Channel1->CCR |= DMA_CCR_EN;
+	
 }
 
 void config_knock_adc () {
@@ -404,8 +396,10 @@ void config_knock_adc () {
 	
 	// Set PC0 to analog mode
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER1_Pos;
 
 	adcUtil_enableChannel(ADC1, 10);
+	adcUtil_enableChannel(ADC1, 11);
 	
 	adcUtil_calibrate(ADC1, 1);	
 }
@@ -470,9 +464,10 @@ int main(void)
   {
     /* USER CODE END WHILE */		
 		
-		usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
-		// usart_transmit_int(dmaUtil_buffer[0]);
-		// usart_transmit_int(ADC1->DR);
+		//usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
+		usart_transmit_int(dmaUtil_buffer[0]);
+		usart_transmit_int(dmaUtil_buffer[1]);
+		//usart_transmit_int(ADC1->DR);
 		HAL_Delay(100);
 		continue;
 		
