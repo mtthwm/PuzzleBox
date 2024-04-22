@@ -80,12 +80,16 @@ int8_t initAccelerometer() {
 	MX_GPIO_Init();
   MX_I2C2_Init();
 	
+	HAL_Delay(1000);
+	
+	accelCheckWhoAmI(); // DO NOT DELETE. sends a message to reset everything ???
+	
 	if (accelCheckWhoAmI()) {
 		return 1;
 	}
 	
 	if (accelSetupRegisters()) {
-		return 1;
+		return 2;
 	}
 	
 	return 0;
@@ -104,6 +108,9 @@ uint8_t accelCheckWhoAmI() {
 	uint8_t WHOAMI[] = {0x75};
 	status = HAL_I2C_Master_Transmit(&hi2c2, ACCEL_ADDR, WHOAMI, 1, 1000);
 	if (status) {
+		if (status == HAL_ERROR) {
+			toggle_blue(1);
+		}
 		return 2;
 	}
 	

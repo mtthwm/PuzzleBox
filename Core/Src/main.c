@@ -267,10 +267,19 @@ int main(void)
 	config_orange();
 	
 	config_adc();
+	
+	HAL_Delay(1000);
 
-	if(initAccelerometer()) {
+	int8_t initVal = initAccelerometer();
+	if(initVal == 1) {
 		while (1) {
 			toggle_red(2);
+			HAL_Delay(250);
+		}
+	}
+	else if(initVal == 2) {
+		while (1) {
+			toggle_orange(2);
 			HAL_Delay(250);
 		}
 	}
@@ -285,24 +294,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-	toggle_blue(1);
-	
-	HAL_Delay(1000);
-	toggle_blue(0);
-	
-	accelCheckWhoAmI(); // DO NOT DELETE. sends a message to reset everything
-	int accelCheckVal = accelCheckWhoAmI();
-	if (accelCheckVal < 0) {
-		toggle_red(1);
-		while(1);
-	}
-	else if (accelCheckVal > 0) {
-		toggle_green(1);
-	}
-	else {
-		toggle_orange(1);
-		while(1);
-	}
 	
 	/*
 	if(!accelSetupRegisters()) {
@@ -353,7 +344,7 @@ int main(void)
 				doGameEnd();
 		}
 				
-		HAL_Delay(250);
+		HAL_Delay(10);
 		toggle_green(0);
 		toggle_blue(0);
 		toggle_red(0);
@@ -361,20 +352,20 @@ int main(void)
 		
 		
 		int axis = accelReadAxis();
-		if (axis < 0) {
+		if (axis == ACCEL_DIR_ERROR) {
 			//error
 			continue;
 		}
-		if (axis == 1) {
+		if (axis == X_POS) {
 			toggle_blue(1);
 		}
-		if (axis == 2) {
+		if (axis == X_NEG) {
 			toggle_red(1);
 		}
-		if (axis == 3) {
+		if (axis == Y_POS) {
 			toggle_orange(1);
 		}
-		if (axis == 4) {
+		if (axis == Y_NEG) {
 			toggle_green(1);
 		}
 
