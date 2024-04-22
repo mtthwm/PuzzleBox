@@ -142,6 +142,7 @@ void USART3_4_IRQHandler () {
 }
 ////////////////////////////////////////////////////////////////////////////////////////
 
+void playKnockPrompt();
 
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
@@ -234,8 +235,8 @@ void toggle_green (char mode) {
 static volatile uint16_t knockCount = 0;
 static uint32_t lastKnockTransmissionTime = 0;
 
-uint32_t firstTime;
-uint32_t secondTime;
+uint32_t firstTime = 0;
+uint32_t secondTime = 0;
 
 /**
  * Non-blocking function to handle Puzzle 1 - knock detection.
@@ -245,9 +246,10 @@ uint32_t secondTime;
  */
 int getKnockTiming() {
 	// Function GLOBALS
-	const uint32_t INPUT_DELAY = 5000; // Delay between the start of puzzle, and accepting user input
-	const uint32_t MIN_TIME_KNOCKSET_1 = 0; // MIN time allowed that we will accept 2nd knock
-	const uint32_t MAX_TIME_KNOCKSET_1 = 2000; // MAX time allowed that we will accept 2nd knock
+	const uint32_t INPUT_DELAY = 500; // Delay between the start of puzzle, and accepting user input
+	const uint32_t MIN_DELAY_BETWEEN = 400; // MIN time allowed that we will accept the first knock
+	const uint32_t MAX_DELAY_BETWEEN = 1000; // MAX time allowed that we will accept 2nd knock
+	const uint32_t DELAY_BEFORE_REPLAYING = 10000;
 	
 	uint32_t elapsedTime = 0;
 	
@@ -255,25 +257,55 @@ int getKnockTiming() {
 	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
 	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
 	static uint32_t firstTimerTimed = 0;
-
-	
+	static uint32_t secondTimerTimed = 0;
+		
 	// Puzzle tune plays ONCE, disabled afterwards.
 	if (!promptTunePlayed){
 		firstTime = HAL_GetTick();
 		promptTunePlayed = 1;
-		// TODO: PLAY BUZZER TUNE HERE
+		playKnockPrompt();
 	}
+	
+	elapsedTime = HAL_GetTick() - firstTime;
 	
 	if (!promptDelayDone) {
 		// Wait a certain amount of time before taking user-input (knocks)
-		secondTime = HAL_GetTick();
-		elapsedTime = secondTime - firstTime;
 		if (elapsedTime >= INPUT_DELAY) {
 			knockCount = 0;
 			promptDelayDone = 1;
 		} else {
 			return 0;
 		}
+	}
+	
+	char fail = 0;
+	
+	// How long has it been since we last prompted the user?
+	if (elapsedTime >= DELAY_BEFORE_REPLAYING) {
+		fail = 1; // Timed out before we got two knocks. Re-prompt the user
+	}
+	
+	if (secondTime != 0) { 
+		// The second knock was received!
+		uint32_t delayBetween = secondTime - firstTime;
+		usart_transmit_int(delayBetween);
+		if ((delayBetween < MIN_DELAY_BETWEEN) || (delayBetween > MAX_DELAY_BETWEEN)) {
+			fail = 1; // Timing was off. Re-prompt the user
+		} else {
+			return 1; // Timing was good!
+		}
+	}
+	
+	if (fail)
+	{
+		knockCount = 0;
+		firstTime = 0;
+		secondTime = 0;
+		promptDelayDone = 0;
+		promptTunePlayed = 0;
+		firstTimerTimed = 0;
+		secondTimerTimed = 0;
+		toggle_orange(0);
 	}
 	
 	toggle_orange(1);
@@ -291,54 +323,15 @@ int getKnockTiming() {
 				firstTime = HAL_GetTick();
 				firstTimerTimed = 1;
 			}
-			// WAIT PHASE - Soft reset if waiting for 2nd knock goes over MAX threshold
-			else {
-				toggle_red(1);
-				secondTime = HAL_GetTick();
-				elapsedTime = secondTime - firstTime;
-				if (elapsedTime > MAX_TIME_KNOCKSET_1){
-					knockCount = 0;
-					firstTime = 0;
-					secondTime = 0;
-					promptDelayDone = 0;
-					promptTunePlayed = 0;
-					firstTimerTimed = 0;
-					toggle_orange(0);
-				}
-			}
 			break;
 		
 		// WAIT PHASE -- wait for 2nd knock, or soft-reset puzzle if waiting too long
-		case 2:
-			secondTime = HAL_GetTick();
-		  elapsedTime = secondTime - firstTime;
-		
-			if (elapsedTime >= MIN_TIME_KNOCKSET_1 
-				&& elapsedTime <= MAX_TIME_KNOCKSET_1)
-			{
-				toggle_green(1);
-				return 1; // Success! Puzzle complete!
-			} else {
-				knockCount = 0;
-				firstTime = 0;
-				secondTime = 0;
-				promptDelayDone = 0;
-				promptTunePlayed = 0;
-				firstTimerTimed = 0;
-				toggle_orange(0);
+		case 2:		
+			if (!secondTimerTimed) {
+				secondTime = HAL_GetTick();
+				secondTimerTimed = 1;
 			}
 			break;
-			
-			// Error - received too many knocks before we could even check!
-		default:
-			toggle_red(1);
-			knockCount = 0;
-			firstTime = 0;
-			secondTime = 0;
-			promptDelayDone = 0;
-			promptTunePlayed = 0;
-			firstTimerTimed = 0;
-			toggle_orange(0);
 	};
 				
 	return 0;
@@ -426,6 +419,14 @@ void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
 		
 		HAL_Delay(durations[i]);
 	}
+	TIM3->CR1 &= ~TIM_CR1_CEN;  // stop the timer after the tune completes
+}
+
+void playKnockPrompt () {
+	uint16_t frequencies[10] = {196, 0, 146, 0, 146, 0, 164, 0, 146};
+	uint16_t durations[10] = {500, 10, 250, 10, 250, 10, 250, 260, 500};
+
+	playTune(frequencies, durations, 10);
 }
 
 void playFanfare() {
@@ -508,12 +509,6 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 	
-	// Enable the RCC clock to GPIOA
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
-	
-	config_red();
-	config_adc();
-	pwmInit();
 
   /* USER CODE END Init */
 
@@ -532,10 +527,11 @@ int main(void)
 	
 	// Enable the RCC clocks
 	__HAL_RCC_USART3_CLK_ENABLE();
-
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
+	
+	pwmInit();
 		
 	config_red();
 	config_blue();
@@ -552,12 +548,13 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-  {
-			
+  {	
+		/*
 		if (HAL_GetTick() - lastKnockTransmissionTime >= 500) {
 			usart_transmit_int(knockCount);
 			lastKnockTransmissionTime = HAL_GetTick();
 		}
+		*/
 	
     /* USER CODE END WHILE */
 		switch (mainState) {
@@ -587,12 +584,6 @@ int main(void)
 				doGameEnd();
 		}
 		
-				
-		HAL_Delay(20);
-		uint16_t frequencies[10] = {196, 0, 146, 0, 146, 0, 164, 0, 146, 0};
-		uint16_t durations[10] = {500, 10, 250, 10, 250, 10, 250, 260, 500, 5000};
-
-		playTune(frequencies, durations, 10);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
