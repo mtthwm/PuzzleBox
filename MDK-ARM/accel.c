@@ -160,19 +160,19 @@ int abs(int num) {
 
 // Return the most positive axis
 // negative on error
-int accelReadAxis() {
+AccelDirection accelReadAxis() {
 	uint8_t retdata[6];
 	HAL_StatusTypeDef status;
 	
 	uint8_t XOUT_H[] = {X_ADDR};
 	status = HAL_I2C_Master_Transmit(&hi2c2, ACCEL_ADDR, XOUT_H, 1, 1000);
 	if (status) {
-		return -1;
+		return ACCEL_DIR_ERROR;
 	}
 	
 	status = HAL_I2C_Master_Receive(&hi2c2, ACCEL_ADDR, retdata, 6, 1000);
 	if (status) {
-		return -1;
+		return ACCEL_DIR_ERROR;
 	}
 	
 	int16_t X = ((uint8_t) retdata[0] << 8) | retdata[1];
@@ -183,19 +183,19 @@ int accelReadAxis() {
 		if (abs(Z) > abs(X)) {
 			// Z is biggest
 			if (Z > 0) {
-				return 5;
+				return Z_POS;
 			}
 			else {
-				return 6;
+				return Z_NEG;
 			}
 		}
 		else {
 			// X is biggest
 			if (X > 0) {
-				return 1;
+				return X_POS;
 			}
 			else {
-				return 2;
+				return X_NEG;
 			}
 		}
 		
@@ -203,10 +203,10 @@ int accelReadAxis() {
 	else {
 		// Y is biggest
 		if (Y > 0) {
-			return 3;
+			return Y_POS;
 		}
 		else {
-			return 4;
+			return Y_NEG;
 		}
 	}
 }

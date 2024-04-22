@@ -16,6 +16,18 @@ extern const uint8_t PWR_MGMT2_REG;
 // HAL I2C struct
 extern I2C_HandleTypeDef hi2c2;
 
+enum AccelerometerDirection {
+	X_POS,
+	X_NEG,
+	Y_POS,
+	Y_NEG,
+	Z_POS,
+	Z_NEG,
+	ACCEL_DIR_ERROR
+};
+
+typedef enum AccelerometerDirection AccelDirection;
+
 //initialize
 int8_t initAccelerometer();
 
@@ -33,9 +45,9 @@ int accelSetupRegisters();
 
 int abs(int num);
 
-// Return the most positive axis
-// negative on error
-int accelReadAxis();
+// Return the axis with the largest magnitude
+// ACCEL_DIR_ERROR on error
+AccelDirection accelReadAxis();
 
 
 #endif
