@@ -256,8 +256,8 @@ int getKnockTiming() {
 	// Function Non-blocking sentinels (track if something has occured or not)
 	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
 	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
-	static uint32_t firstTimerTimed = 0;
-	static uint32_t secondTimerTimed = 0;
+	static uint32_t firstTimerTimed = 0; // Track if the first knock time has been recorded
+	static uint32_t secondTimerTimed = 0; // Track if the second knock time has been recorded
 		
 	// Puzzle tune plays ONCE, disabled afterwards.
 	if (!promptTunePlayed){
