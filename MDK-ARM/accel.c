@@ -16,6 +16,9 @@ const uint8_t PWR_MGMT2_REG = 108;
 // HAL I2C struct
 I2C_HandleTypeDef hi2c2;
 
+// TODO Refactor this lol
+void usart_transmit_str (char* s);
+
 /**
   * @brief I2C2 Initialization Function
   * @param None
@@ -94,6 +97,37 @@ int8_t initAccelerometer() {
 	
 	return 0;
 }
+void sendError(HAL_StatusTypeDef status) {
+	switch (status) {
+		case HAL_OK:
+			usart_transmit_str("OK\n\r");
+			toggle_red(1);
+			toggle_green(1);
+			HAL_Delay(250);
+			break;
+		case HAL_ERROR:
+			usart_transmit_str("ERROR\n\r");
+			toggle_red(1);
+			toggle_blue(1);
+			HAL_Delay(250);
+			break;
+		case HAL_BUSY:
+			usart_transmit_str("BUSY\n\r");
+			toggle_red(1);
+			toggle_orange(1);
+			HAL_Delay(250);
+			break;
+		case HAL_TIMEOUT:
+			usart_transmit_str("TIMEOUT\n\r");
+			toggle_green(1);
+			toggle_blue(1);
+			HAL_Delay(250);
+			break;
+		default:
+			usart_transmit_str("UNKNOWN_STATUS\n\r");
+	}
+	
+}
 
 //SCL: B10
 //SCD: B11
@@ -108,9 +142,6 @@ uint8_t accelCheckWhoAmI() {
 	uint8_t WHOAMI[] = {0x75};
 	status = HAL_I2C_Master_Transmit(&hi2c2, ACCEL_ADDR, WHOAMI, 1, 1000);
 	if (status) {
-		if (status == HAL_ERROR) {
-			toggle_blue(1);
-		}
 		return 2;
 	}
 	
@@ -174,12 +205,15 @@ AccelDirection accelReadAxis() {
 	uint8_t XOUT_H[] = {X_ADDR};
 	status = HAL_I2C_Master_Transmit(&hi2c2, ACCEL_ADDR, XOUT_H, 1, 1000);
 	if (status) {
+		usart_transmit_str("tx error: ");
+		sendError(status);
 		return ACCEL_DIR_ERROR;
-		// see what error this is
 	}
 	
 	status = HAL_I2C_Master_Receive(&hi2c2, ACCEL_ADDR, retdata, 6, 1000);
 	if (status) {
+		usart_transmit_str("rx error: ");
+		sendError(status);
 		return ACCEL_DIR_ERROR;
 	}
 	
