@@ -587,6 +587,13 @@ void playFanfare() {
 	playTune(frequencies, durations, 4);
 }
 
+// TODO: Function will flash all box's LEDs
+// Intended to give our puzzle completions look more appealing
+// Can also be used to indicate when we solve the puzzle box(?)
+void flashBoxLEDs(){
+
+}
+
 enum adcUtil_resolution {
 	adcUtil_12bit,
 	adcUtil_10bit,
@@ -743,35 +750,33 @@ int main(void)
 			lastKnockTransmissionTime = HAL_GetTick();
 		}
 		*/
-	
-    /*
-		switch (mainState) {
-			case Puzzle1:
-				if (doPuzzle1()) {
-					playFanfare();
-					mainState = Puzzle2;
-				}
-				break;
+
+	switch (mainState) {
+		case Puzzle1:
+			if (doPuzzle1()) {
+				playFanfare();
+				mainState = Puzzle2;
+			}
+			break;
+		
+		case Puzzle2:
+			toggle_blue(1);	
+			if (doPuzzle2()) {
+				playFanfare();
+				mainState = Puzzle3;
+			}
+			break;
+
+		case Puzzle3:
+			if (doPuzzle3()) {
+				playFanfare();
+				mainState = GameEnd;
+			}
+			break;
 			
-			case Puzzle2:
-				toggle_blue(1);
-				if (doPuzzle2()) {
-					playFanfare();
-					mainState = Puzzle3;
-				}
-				break;
-				
-			case Puzzle3:
-				if (doPuzzle3()) {
-					playFanfare();
-					mainState = GameEnd;
-				}
-				break;
-			
-			case GameEnd:
-				doGameEnd();
+		case GameEnd:
+			doGameEnd();
 		}
-		*/
 
 		HAL_Delay(25);
 		toggle_green(0);
@@ -779,7 +784,7 @@ int main(void)
 		toggle_red(0);
 		toggle_orange(0);
 		
-		
+		/*
 		int axis = accelReadAxis();
 		if (axis == ACCEL_DIR_ERROR) {
 			//error
@@ -797,7 +802,7 @@ int main(void)
 		if (axis == Y_NEG) {
 			toggle_green(1);
 		}
-		
+		*/
 		
 		/* USER CODE END WHILE */
 
