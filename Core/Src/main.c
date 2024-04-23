@@ -357,6 +357,20 @@ void handleKnocks () {
 	}
 }
 
+uint32_t getOrientation(){
+	uint32_t orientation = 0;
+	// TODO: Code to acquire the current orientation of device here
+	//        resting on:
+	// (1) -> bottom side (top side is up) (DEFAULT)
+	// (2) -> left side (right side is up)
+	// (3) -> right side (left side is up)
+	// (4) -> back side (front side is up)
+	// (5) -> front side (back side is up)
+	// (6) -> top side (bottom side is up)
+	// (0) -> ERROR, used for debugging
+	return orientation;
+}
+
 // returns true when puzzle is solved
 int doPuzzle1() {
 	handleKnocks();
@@ -364,6 +378,42 @@ int doPuzzle1() {
 }
 
 int doPuzzle2() {
+	uint32_t orientation = getOrientation();
+	static uint16_t puzzleStage = 0;
+	switch(puzzleStage){
+		case 0:
+			// EnableBottomLED
+			puzzleStage = 1;
+			break;
+		// Wait until box is upside down
+		case 1:
+			if (orientation == 6){
+				puzzleStage = 2;
+				// DisableBottomLED
+				// EnableRightLED
+			}
+			break;
+		// Wait until box is on its right side
+		case 2:
+			if (orientation == 3){
+				// DisableRightLED
+				// EnableTopLED
+				puzzleStage = 3;
+			}
+			break;
+		// Wait until box is upright
+		case 3:
+			if (orientation == 1){
+				// DisableTopLED
+				return 1;
+			}
+			break;
+		
+		// Error, reset puzzle back to stage 0
+		default:
+			puzzleStage = 0;
+			return 0;
+	}
 	return 0;
 }
 
