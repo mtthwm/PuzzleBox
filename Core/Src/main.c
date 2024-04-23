@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "accel.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -548,6 +549,8 @@ void config_knock_adc () {
   */
 int main(void)
 {
+	
+	
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -556,14 +559,42 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+	
+	/* Configure the system clock */
+  SystemClock_Config();
 
   /* USER CODE BEGIN Init */
 	
+	// Enable the RCC clock to GPIOA
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	
+	config_red();
+	config_green();
+	config_blue();
+	config_orange();
+	
+	config_adc();
+	
+	HAL_Delay(1000);
 
+	int8_t initVal = initAccelerometer();
+	if(initVal == 1) {
+		while (1) {
+			toggle_red(2);
+			HAL_Delay(250);
+		}
+	}
+	else if(initVal == 2) {
+		while (1) {
+			toggle_orange(2);
+			HAL_Delay(250);
+		}
+	}
+	
   /* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+  
 
   /* USER CODE BEGIN SysInit */
 
@@ -571,6 +602,17 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+
+	/*
+	if(!accelSetupRegisters()) {
+		toggle_red(1);
+		while(1);
+	}
+	*/
+	accelSetupRegisters();
+	
+	toggle_blue(1);
+	HAL_Delay(5000);
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
@@ -633,7 +675,32 @@ int main(void)
 			case GameEnd:
 				doGameEnd();
 		}
+
+		HAL_Delay(25);
+		toggle_green(0);
+		toggle_blue(0);
+		toggle_red(0);
+		toggle_orange(0);
 		
+		
+		int axis = accelReadAxis();
+		if (axis == ACCEL_DIR_ERROR) {
+			//error
+			continue;
+		}
+		if (axis == X_POS) {
+			toggle_blue(1);
+		}
+		if (axis == X_NEG) {
+			toggle_red(1);
+		}
+		if (axis == Y_POS) {
+			toggle_orange(1);
+		}
+		if (axis == Y_NEG) {
+			toggle_green(1);
+		}
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
