@@ -665,9 +665,11 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 	
-	// Enable the RCC clock to GPIOA
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	// Enable the RCC clocks
+	__HAL_RCC_USART3_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
 	
 	config_red();
 	config_green();
@@ -675,7 +677,14 @@ int main(void)
 	config_orange();
 	config_sideLEDs(); // additional LED's on pins PA8 to PA13
 	
-	config_adc();
+	pwmInit();
+	
+	config_usart(115200);
+
+	usart_transmit_str("USART READY!\n");
+	
+	config_knock_adc();
+	
 	
 	HAL_Delay(1000);
 
@@ -712,29 +721,15 @@ int main(void)
 	*/
 	accelSetupRegisters();
 	
+	usart_transmit_str("Config done!\n\r");
 	toggle_blue(1);
-	HAL_Delay(5000);
+	HAL_Delay(1000);
+	toggle_blue(0);
 	
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
-	// Enable the RCC clocks
-	__HAL_RCC_USART3_CLK_ENABLE();
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOC_CLK_ENABLE();
 	
-	pwmInit();
-		
-	config_red();
-	config_blue();
-	config_green();
-	config_orange();
-	
-	config_knock_adc();
-	config_usart(115200);
-
-	usart_transmit_str("USART READY!\n");
 
   /* USER CODE END 2 */
 
@@ -749,7 +744,7 @@ int main(void)
 		}
 		*/
 	
-    /* USER CODE END WHILE */
+    /*
 		switch (mainState) {
 			case Puzzle1:
 				if (doPuzzle1()) {
@@ -776,6 +771,7 @@ int main(void)
 			case GameEnd:
 				doGameEnd();
 		}
+		*/
 
 		HAL_Delay(25);
 		toggle_green(0);
@@ -801,6 +797,9 @@ int main(void)
 		if (axis == Y_NEG) {
 			toggle_green(1);
 		}
+		
+		
+		/* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
