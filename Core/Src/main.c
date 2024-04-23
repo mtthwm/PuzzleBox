@@ -145,6 +145,113 @@ void USART3_4_IRQHandler () {
 
 void playKnockPrompt();
 
+//////////////////////////////
+//// BOX SIDE-LED CONFIG /////
+//////////////////////////////
+void config_sideLEDs()
+{
+	GPIOA->MODER &= ~(0xFFF << 27); // Clear state of Moder reg for pins [8-13]
+	GPIOA->MODER |= (0x555 << 27); // Pins [8-13] to General Purpose Output
+	GPIOA->OTYPER &= ~(0x3F << 15); // Pins [8-13] to Output push-pull
+	GPIOA->OSPEEDR &= ~(0xFFF << 27); // Pins [8-13] to Low Speed
+	GPIOA->PUPDR &= ~(0xFFF << 27); // Pins [8-13] to "No Pull-Up, Pull-Down"
+	GPIOA->ODR &= ~(0x3F << 15); // Pins [8-13] set to OFF
+}
+
+// Pin PA8
+void toggle_LED_top(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 8)
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 8);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 8);
+			break;
+	}
+}
+
+// Pin PA9
+void toggle_LED_bottom(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 9);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 9);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 9);
+			break;
+	}
+}
+
+// Pin PA10
+void toggle_LED_front(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 10);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 10);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 10);
+			break;
+	}
+}
+
+// Pin PA11
+void toggle_LED_back(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 11);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 11);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 11);
+			break;
+	}
+}
+
+// Pin PA12
+void toggle_LED_left(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 12);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 12);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 12);
+			break;
+	}
+}
+
+// Pin PA13
+void toggle_LED_right(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 13);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 13);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 13);
+			break;
+	}
+}
+//////////////////////////////////////////////
+
+//////////////////////////
+//// BOARD LED CONFIG ////
+//////////////////////////
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
 	GPIOC->MODER |= GPIO_MODER_MODER6_0;
@@ -229,6 +336,7 @@ void toggle_green (char mode) {
 			break;
 	}
 }
+/////////////////////////////////////////////////
 
 #define KNOCK_THRESH_LO 16
 #define KNOCK_THRESH_HI 18
@@ -312,8 +420,6 @@ int getKnockTiming() {
 	toggle_orange(1);
 	
 	// PUZZLE PHASE - After buzzer plays and a short delay
-	// Note that the cases denote puzzle progress, rather than
-	// actual knocks received. See comments
 	switch(knockCount){
 		case 0:
 			break;
@@ -358,54 +464,48 @@ void handleKnocks () {
 	}
 }
 
-uint32_t getOrientation(){
-	uint32_t orientation = 0;
-	// TODO: Code to acquire the current orientation of device here
-	//        resting on:
-	// (1) -> bottom side (top side is up) (DEFAULT)
-	// (2) -> left side (right side is up)
-	// (3) -> right side (left side is up)
-	// (4) -> back side (front side is up)
-	// (5) -> front side (back side is up)
-	// (6) -> top side (bottom side is up)
-	// (0) -> ERROR, used for debugging
-	return orientation;
-}
-
 // returns true when puzzle is solved
 int doPuzzle1() {
 	handleKnocks();
 	return getKnockTiming();
 }
 
+/**
+ * Uses the accelerometer orientation to check if the user
+ * (1) flips the box upside-down
+ * (2) places the box on its right side
+ * (3) Re-orients the box upright (default starting orientation)
+ *
+ * @return 1 if puzzle is completed, 0 otherwise
+ */
 int doPuzzle2() {
-	uint32_t orientation = getOrientation();
+	int orientation = accelReadAxis();
 	static uint16_t puzzleStage = 0;
 	switch(puzzleStage){
 		case 0:
-			// EnableBottomLED
 			puzzleStage = 1;
+			toggle_LED_bottom(1);
 			break;
 		// Wait until box is upside down
 		case 1:
-			if (orientation == 6){
+			if (orientation == Y_POS){
 				puzzleStage = 2;
-				// DisableBottomLED
-				// EnableRightLED
+				toggle_LED_bottom(0);
+				toggle_LED_right(1);
 			}
 			break;
 		// Wait until box is on its right side
 		case 2:
-			if (orientation == 3){
-				// DisableRightLED
-				// EnableTopLED
+			if (orientation == X_POS){
 				puzzleStage = 3;
+				toggle_LED_right(0);
+				toggle_LED_top(1);
 			}
 			break;
 		// Wait until box is upright
 		case 3:
-			if (orientation == 1){
-				// DisableTopLED
+			if (orientation == Y_NEG){
+				toggle_LED_top(0);
 				return 1;
 			}
 			break;
@@ -573,6 +673,7 @@ int main(void)
 	config_green();
 	config_blue();
 	config_orange();
+	config_sideLEDs(); // additional LED's on pins PA8 to PA13
 	
 	config_adc();
 	
