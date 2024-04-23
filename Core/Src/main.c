@@ -129,7 +129,7 @@ void usart_transmit_int (uint16_t num) {
 	for (int8_t i = 7; i > -1; i--) {
 		usart_transmit_char(buff[i]);
 	}
-	
+	usart_transmit_char('\r');
 	usart_transmit_char('\n');
 }
 void USART3_4_IRQHandler () {
@@ -372,6 +372,7 @@ void dmaUtil_configChannel () {
 	
 	// Set the memory address registers to increment after each read
 	DMA1_Channel1->CCR |= DMA_CCR_MINC;
+	DMA1_Channel1->CCR &= ~DMA_CCR_PINC;
 	
 	// Set circular mode
 	DMA1_Channel1->CCR |= DMA_CCR_CIRC;
@@ -396,10 +397,15 @@ void config_knock_adc () {
 	
 	// Set PC0 to analog mode
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
-	GPIOC->MODER |= 3 << GPIO_MODER_MODER1_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER5_Pos;
+	
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR0;
+	GPIOB->PUPDR &= ~GPIO_PUPDR_PUPDR1;
 
+	ADC1 ->CHSELR |= ADC_CHSELR_CHSEL10 | ADC_CHSELR_CHSEL15;
 	adcUtil_enableChannel(ADC1, 10);
-	adcUtil_enableChannel(ADC1, 11);
+	adcUtil_enableChannel(ADC1, 15);
+
 	
 	adcUtil_calibrate(ADC1, 1);	
 }
@@ -464,8 +470,11 @@ int main(void)
   {
     /* USER CODE END WHILE */		
 		
-		//usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
+		usart_transmit_str("ADC OVR: ");
+		usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
+		usart_transmit_str("Channel 1: ");
 		usart_transmit_int(dmaUtil_buffer[0]);
+		usart_transmit_str("Channel 2: ");
 		usart_transmit_int(dmaUtil_buffer[1]);
 		//usart_transmit_int(ADC1->DR);
 		HAL_Delay(100);
