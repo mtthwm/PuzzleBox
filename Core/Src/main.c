@@ -149,11 +149,13 @@ enum PuzzleStateType {
 
 // returns true when puzzle is solved
 int doPuzzle1() {
+	/*
 	if (ADC1->DR > 5) {
 		toggle_red(1);
 	} else {
 		toggle_red(0);
 	}
+	*/
 	return 0;
 }
 
@@ -344,7 +346,7 @@ int main(void)
 				doGameEnd();
 		}
 				
-		HAL_Delay(10);
+		HAL_Delay(25);
 		toggle_green(0);
 		toggle_blue(0);
 		toggle_red(0);

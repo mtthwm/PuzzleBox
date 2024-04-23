@@ -175,6 +175,7 @@ AccelDirection accelReadAxis() {
 	status = HAL_I2C_Master_Transmit(&hi2c2, ACCEL_ADDR, XOUT_H, 1, 1000);
 	if (status) {
 		return ACCEL_DIR_ERROR;
+		// see what error this is
 	}
 	
 	status = HAL_I2C_Master_Receive(&hi2c2, ACCEL_ADDR, retdata, 6, 1000);
