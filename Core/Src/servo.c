@@ -1,13 +1,13 @@
 #include "servo.h"
 
 void servoUtil_configServo() {
-	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_1,
+	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_3,
 	GPIO_MODE_AF_PP,
 	GPIO_SPEED_FREQ_LOW,
 	GPIO_NOPULL,
 	GPIO_AF2_TIM2};
 	
-	HAL_GPIO_Init(GPIOA, &initStrPWM);
+	HAL_GPIO_Init(GPIOB, &initStrPWM);
 	
 	TIM2->PSC = 799;
 	TIM2->ARR = 200;
