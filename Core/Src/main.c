@@ -41,9 +41,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
 /* USER CODE BEGIN PV */
-
+static volatile uint16_t dmaUtil_buffer[4];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -234,7 +233,6 @@ void toggle_LED_left(char mode){
 }
 
 // Pin PA15
-
 void toggle_LED_right(char mode){
 	switch(mode){
 		case 0:
@@ -245,6 +243,39 @@ void toggle_LED_right(char mode){
 			break;
 		case 2:
 			GPIOA->ODR ^= (1 << 15);
+			break;
+	}
+}
+
+/**
+ * Configures all LEDs based on input.
+ * @param mode '0' = ALL OFF | '1' = ALL ON | '2' = ALL INVERT
+ */
+void toggle_LED_all(char mode){
+	switch(mode){
+		case 0:
+			toggle_LED_top(0);
+			toggle_LED_bottom(0);
+			toggle_LED_front(0);
+			toggle_LED_back(0);
+			toggle_LED_left(0);
+			toggle_LED_right(0);
+			break;
+		case 1:
+			toggle_LED_top(1);
+			toggle_LED_bottom(1);
+			toggle_LED_front(1);
+			toggle_LED_back(1);
+			toggle_LED_left(1);
+			toggle_LED_right(1);
+			break;
+		case 2:
+			toggle_LED_top(2);
+			toggle_LED_bottom(2);
+			toggle_LED_front(2);
+			toggle_LED_back(2);
+			toggle_LED_left(2);
+			toggle_LED_right(2);
 			break;
 	}
 }
@@ -339,6 +370,23 @@ void toggle_green (char mode) {
 	}
 }
 /////////////////////////////////////////////////
+
+
+///////////////////////////
+///// PHOTORESISTOR GET() functions
+///////////////////////////
+uint16_t getResistorTop(){
+	return dmaUtil_buffer[0];
+}
+
+uint16_t getResistorBottom(){
+	return dmaUtil_buffer[1];
+}
+
+uint16_t getResistorFront(){
+	return dmaUtil_buffer[2];
+}
+
 
 #define KNOCK_THRESH_LO 16
 #define KNOCK_THRESH_HI 18
@@ -520,7 +568,48 @@ int doPuzzle2() {
 	return 0;
 }
 
+/**
+ * Puzzle 3 - Photoresistor Checks
+ * Puzzle will include lighting the photoresistors
+ * Each photoresistor will be associated with an LED
+ * A lit LED indicates the hole will need to be lit up
+ *
+ * This function will sequentially check if
+ * (1) The top photoresistor is lit up
+ * (2) The bottom photoresistor is lit up
+ * (3) Both the top and front photoresistors are lit (small challenge)
+ */
 int doPuzzle3() {
+	static uint16_t puzzleStage = 0;
+
+	switch(puzzleStage){
+		case 0:
+			toggle_LED_top(1);
+			puzzleStage = 1;
+			break;
+		case 1:
+			if (getResistorTop > 20){
+				toggle_LED_top(0);
+				toggle_LED_bottom(1);
+				puzzleStage = 2;
+			}
+			break;
+		case 2:
+			if(getResistorBottom > 20){
+				toggle_LED_bottom(0);
+				toggle_LED_front(1);
+				toggle_LED_top(1);
+				puzzleStage = 3;
+			}
+			break;
+		case 3:
+			if(getResistorTop > 20 && getResistorFront > 20){
+				toggle_LED_top(0);
+				toggle_LED_front(0);
+				return 1;
+			}
+			break;
+	}
 	return 0;
 }
 
@@ -589,11 +678,57 @@ void playFanfare() {
 	playTune(frequencies, durations, 4);
 }
 
-// TODO: Function will flash all box's LEDs
-// Intended to give our puzzle completions look more appealing
-// Can also be used to indicate when we solve the puzzle box(?)
+/**
+ * Function that flashes ALL box LEDs 5 times
+ * Intended to indicate progress in the puzzle.
+ * Function is somewhat blokcing, uses HAL_Delay
+ */
 void flashBoxLEDs(){
+	toggle_LED_all(0);
+	for(int i = 0; i < 6; i++){
+		toggle_LED_all(2);
+		HAL_Delay(50)
+	}
+}
 
+/**
+ * Used to indicate something major occuring (the puzzle box being solved)
+ * Function is somewhat blocking, using HAL_Delay
+ */
+void victoryBoxLEDs(){
+	toggle_LED_all(0);
+	for (int i = 0; i < 6; i++){
+		// All on sequentially
+		toggle_LED_front(1);
+		HAL_Delay(50);
+
+		toggle_LED_left(1);
+		HAL_Delay(50);
+
+		toggle_LED_back(1);
+		HAL_Delay(50);
+
+		toggle_LED_right(1);
+		HAL_Delay(50);
+
+		// All off sequentially
+		toggle_LED_front(0);
+		HAL_Delay(50);
+
+		toggle_LED_left(0);
+		HAL_Delay(50);
+
+		toggle_LED_back(0);
+		HAL_Delay(50);
+
+		toggle_LED_right(0);
+		HAL_Delay(50);
+	}
+	for(int i = 0; i < 6; i++){
+		toggle_LED_all(1);
+		HAL_Delay(50);
+	}
+	toggle_LED_all(1);
 }
 
 enum adcUtil_resolution {
@@ -644,7 +779,6 @@ void adcUtil_enableChannel (ADC_TypeDef* adcInstance, uint8_t channelNumber) {
 	adcInstance->CHSELR |= (1 << channelNumber);
 }
 
-static volatile uint16_t dmaUtil_buffer[4];
 void dmaUtil_configChannel () {
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 	
@@ -733,7 +867,7 @@ int main(void)
 	config_green();
 	config_blue();
 	config_orange();
-	config_sideLEDs(); // additional LED's on pins PA8 to PA13
+	config_sideLEDs(); // additional LED's on pins PA8-PA12, and PA15
 	
 	pwmInit();
 	
@@ -813,12 +947,13 @@ int main(void)
 	usart_transmit_int(dmaUtil_buffer[3]);
 	//usart_transmit_int(ADC1->DR);
 	HAL_Delay(100);
-	continue;
+	continue; // SKIP SWITCH HERE FOR DEBUG
 
 	switch (mainState) {
 		case Puzzle1:
 			if (doPuzzle1()) {
 				playFanfare();
+				flashBoxLEDs();
 				mainState = Puzzle2;
 			}
 			break;
@@ -827,6 +962,7 @@ int main(void)
 			toggle_blue(1);	
 			if (doPuzzle2()) {
 				playFanfare();
+				flashBoxLEDs();
 				mainState = Puzzle3;
 			}
 			break;
@@ -834,6 +970,7 @@ int main(void)
 		case Puzzle3:
 			if (doPuzzle3()) {
 				playFanfare();
+				flashBoxLEDs();
 				mainState = GameEnd;
 			}
 			break;
