@@ -150,12 +150,12 @@ void playKnockPrompt();
 //////////////////////////////
 void config_sideLEDs()
 {
-	GPIOA->MODER &= ~(0xFFF << 16); // Clear state of Moder reg for pins [8-13]
-	GPIOA->MODER |= (0x555 << 16); // Pins [8-13] to General Purpose Output
-	GPIOA->OTYPER &= ~(0x3F << 8); // Pins [8-13] to Output push-pull
-	GPIOA->OSPEEDR &= ~(0xFFF << 16); // Pins [8-13] to Low Speed
-	GPIOA->PUPDR &= ~(0xFFF << 16); // Pins [8-13] to "No Pull-Up, Pull-Down"
-	GPIOA->ODR &= ~(0x3F << 8); // Pins [8-13] set to OFF
+	GPIOA->MODER &= ~(0x3FF << 16); // Clear state of Moder reg for pins [8-12]
+	GPIOA->MODER |= (0x155 << 16); // Pins [8-12] to General Purpose Output
+	GPIOA->OTYPER &= ~(0x1F << 8); // Pins [8-12] to Output push-pull
+	GPIOA->OSPEEDR &= ~(0x3FF << 16); // Pins [8-12] to Low Speed
+	GPIOA->PUPDR &= ~(0x3FF << 16); // Pins [8-12] to "No Pull-Up, Pull-Down"
+	GPIOA->ODR &= ~(0x1F << 8); // Pins [8-12] set to OFF
 }
 
 // Pin PA8
@@ -234,6 +234,7 @@ void toggle_LED_left(char mode){
 }
 
 // Pin PA13
+/*
 void toggle_LED_right(char mode){
 	switch(mode){
 		case 0:
@@ -247,6 +248,7 @@ void toggle_LED_right(char mode){
 			break;
 	}
 }
+*/
 //////////////////////////////////////////////
 
 //////////////////////////
@@ -491,14 +493,14 @@ int doPuzzle2() {
 			if (orientation == Y_POS){
 				puzzleStage = 2;
 				toggle_LED_bottom(0);
-				toggle_LED_right(1);
+				//toggle_LED_right(1);
 			}
 			break;
 		// Wait until box is on its right side
 		case 2:
 			if (orientation == X_POS){
 				puzzleStage = 3;
-				toggle_LED_right(0);
+				//toggle_LED_right(0);
 				toggle_LED_top(1);
 			}
 			break;
