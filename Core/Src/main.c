@@ -42,7 +42,14 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+
+// Contains values for 3 photoresistors and PIEZO
+// [0] contains piezo
+// [1] is the top photoresistor
+// [2] is the bottom photoresistor
+// [3] is the back photoresistor
 static volatile uint16_t dmaUtil_buffer[4];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -372,21 +379,21 @@ void toggle_green (char mode) {
 /////////////////////////////////////////////////
 
 
-///////////////////////////
+////////////////////////////////////
 ///// PHOTORESISTOR GET() functions
-///////////////////////////
+/////////////////////////////////////
 uint16_t getResistorTop(){
-	return dmaUtil_buffer[0];
-}
-
-uint16_t getResistorBottom(){
 	return dmaUtil_buffer[1];
 }
 
-uint16_t getResistorFront(){
+uint16_t getResistorBottom(){
 	return dmaUtil_buffer[2];
 }
 
+uint16_t getResistorBack(){
+	return dmaUtil_buffer[3];
+}
+////////////////////////////////////////////
 
 #define KNOCK_THRESH_LO 16
 #define KNOCK_THRESH_HI 18
@@ -580,6 +587,7 @@ int doPuzzle2() {
  * (3) Both the top and front photoresistors are lit (small challenge)
  */
 int doPuzzle3() {
+	const uint16_t LIGHT_THRESHOLD = 3700;
 	static uint16_t puzzleStage = 0;
 
 	switch(puzzleStage){
@@ -587,25 +595,31 @@ int doPuzzle3() {
 			toggle_LED_top(1);
 			puzzleStage = 1;
 			break;
+
+		// Light TOP resistor
 		case 1:
-			if (getResistorTop > 20){
+			if (getResistorTop() > LIGHT_THRESHOLD){
 				toggle_LED_top(0);
 				toggle_LED_bottom(1);
 				puzzleStage = 2;
 			}
 			break;
+		
+		// Light BOTTOM resistor
 		case 2:
-			if(getResistorBottom > 20){
+			if(getResistorBottom() > LIGHT_THRESHOLD){
 				toggle_LED_bottom(0);
-				toggle_LED_front(1);
+				toggle_LED_back(1);
 				toggle_LED_top(1);
 				puzzleStage = 3;
 			}
 			break;
+
+		// Light TOP and BACK resistor
 		case 3:
-			if(getResistorTop > 20 && getResistorFront > 20){
+			if(getResistorTop() > LIGHT_THRESHOLD && getResistorBack() > LIGHT_THRESHOLD){
 				toggle_LED_top(0);
-				toggle_LED_front(0);
+				toggle_LED_back(0);
 				return 1;
 			}
 			break;
