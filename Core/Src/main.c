@@ -736,7 +736,7 @@ int main(void)
 	toggle_blue(0);
 	
 	
-	enum PuzzleStateType mainState = Puzzle2;
+	enum PuzzleStateType mainState = Puzzle1;
 	
 	
 
@@ -781,30 +781,6 @@ int main(void)
 		}
 
 		HAL_Delay(25);
-		toggle_green(0);
-		toggle_blue(0);
-		toggle_red(0);
-		toggle_orange(0);
-		
-		/*
-		int axis = accelReadAxis();
-		if (axis == ACCEL_DIR_ERROR) {
-			//error
-			continue;
-		}
-		if (axis == X_POS) {
-			toggle_blue(1);
-		}
-		if (axis == X_NEG) {
-			toggle_red(1);
-		}
-		if (axis == Y_POS) {
-			toggle_orange(1);
-		}
-		if (axis == Y_NEG) {
-			toggle_green(1);
-		}
-		*/
 		
 		/* USER CODE END WHILE */
 
