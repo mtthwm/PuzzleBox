@@ -23,6 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "servo.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,7 +71,7 @@ static char rx_chars[RX_BUFF_SIZE];
 static int rx_i = 0;
 
 /**
-	* @brief Configures USART with PC4=RX, PC5=TX
+	* @brief Configures USART with PC10=RX, PC11=TX
 	*/
 void config_usart (uint32_t baudrate) {
 	// Set the mode of the GPIO pins to use an alternate function
@@ -631,7 +633,6 @@ void doGameEnd() {
 	
 }
 
-
 void pwmInit() {
 	
 	__HAL_RCC_GPIOB_CLK_ENABLE();
@@ -642,6 +643,7 @@ void pwmInit() {
 	GPIO_SPEED_FREQ_LOW,
 	GPIO_NOPULL,
 	GPIO_AF1_TIM3};
+	
 	
 	HAL_GPIO_Init(GPIOB, &initStrPWM);
 	
@@ -847,6 +849,14 @@ void config_knock_adc () {
 	adcUtil_calibrate(ADC1, 1);	
 }
 
+void unlock () {
+	servoUtil_setServo(8);
+}
+
+void lock () {
+	servoUtil_setServo(0);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -876,6 +886,7 @@ int main(void)
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_TIM2_CLK_ENABLE();
 	
 	config_red();
 	config_green();
@@ -887,6 +898,8 @@ int main(void)
 	
 	dmaUtil_configChannel();
 	config_knock_adc();
+	servoUtil_configServo();
+	lock();
 	config_usart(115200);
 
 	usart_transmit_str("USART READY!\n");

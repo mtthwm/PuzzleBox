@@ -411,6 +411,16 @@
               <FilePath>../Core/Src/stm32f0xx_hal_msp.c</FilePath>
             </File>
             <File>
+              <FileName>servo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\servo.c</FilePath>
+            </File>
+            <File>
+              <FileName>servo.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\servo.h</FilePath>
+            </File>
+            <File>
               <FileName>accel.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Core\Inc\accel.h</FilePath>

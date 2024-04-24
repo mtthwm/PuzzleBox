@@ -36,18 +36,18 @@ Using a servo, unlock the box for opening. Puzzle restarts on close.
   - TX: PC10 
   - RX: PC11 
 
-- ADC: TBD
-  - Photoresistors
-  - Piezo Sensor
+- ADC: PC0-3
+  - Piezo: PC0 
+  - Photoresistors PC1,2,3
 
 - Buzzer: PB5 
 
 - Box-Side LEDs 
-	- PA8 -- Top LED 
-	- PA9 – Base LED 
-	- PA10 – Front LED 
-	- PA11 – Back LED 
-  - PA12 – Left Side LED 
-  - PA13 – Right Side LED	 
+   - PA8 -- Top LED 
+   - PA9 – Base LED 
+   - PA10 – Front LED 
+   - PA11 – Back LED 
+   - PA12 – Left Side LED
+   - PA13 – Right Side LED	 
 
 - Servo: PB3 
