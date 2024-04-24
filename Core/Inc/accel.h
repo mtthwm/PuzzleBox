@@ -13,6 +13,8 @@ extern const uint8_t ACCEL_CFG2_REG;
 extern const uint8_t PWR_MGMT_REG;
 extern const uint8_t PWR_MGMT2_REG;
 
+extern const uint16_t AXIS_THRESHOLD;
+
 // HAL I2C struct
 extern I2C_HandleTypeDef hi2c2;
 
@@ -23,6 +25,7 @@ enum AccelerometerDirection {
 	Y_NEG,
 	Z_POS,
 	Z_NEG,
+	NO_AXIS,
 	ACCEL_DIR_ERROR
 };
 

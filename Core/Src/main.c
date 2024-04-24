@@ -150,19 +150,19 @@ void playKnockPrompt();
 //////////////////////////////
 void config_sideLEDs()
 {
-	GPIOA->MODER &= ~(0xFFF << 27); // Clear state of Moder reg for pins [8-13]
-	GPIOA->MODER |= (0x555 << 27); // Pins [8-13] to General Purpose Output
-	GPIOA->OTYPER &= ~(0x3F << 15); // Pins [8-13] to Output push-pull
-	GPIOA->OSPEEDR &= ~(0xFFF << 27); // Pins [8-13] to Low Speed
-	GPIOA->PUPDR &= ~(0xFFF << 27); // Pins [8-13] to "No Pull-Up, Pull-Down"
-	GPIOA->ODR &= ~(0x3F << 15); // Pins [8-13] set to OFF
+	GPIOA->MODER &= ~(0xFFF << 16); // Clear state of Moder reg for pins [8-13]
+	GPIOA->MODER |= (0x555 << 16); // Pins [8-13] to General Purpose Output
+	GPIOA->OTYPER &= ~(0x3F << 8); // Pins [8-13] to Output push-pull
+	GPIOA->OSPEEDR &= ~(0xFFF << 16); // Pins [8-13] to Low Speed
+	GPIOA->PUPDR &= ~(0xFFF << 16); // Pins [8-13] to "No Pull-Up, Pull-Down"
+	GPIOA->ODR &= ~(0x3F << 8); // Pins [8-13] set to OFF
 }
 
 // Pin PA8
 void toggle_LED_top(char mode){
 	switch(mode){
 		case 0:
-			GPIOA->ODR &= ~(1 << 8)
+			GPIOA->ODR &= ~(1 << 8);
 			break;
 		case 1:
 			GPIOA->ODR |= (1 << 8);
@@ -583,7 +583,7 @@ void playKnockPrompt () {
 void playFanfare() {
 	uint16_t frequencies[] = {261, 329, 392, 523};
 	uint16_t durations[] = {200, 200, 200, 600};
-		
+	
 	playTune(frequencies, durations, 4);
 }
 
@@ -734,7 +734,7 @@ int main(void)
 	toggle_blue(0);
 	
 	
-	enum PuzzleStateType mainState = Puzzle1;
+	enum PuzzleStateType mainState = Puzzle2;
 	
 	
 

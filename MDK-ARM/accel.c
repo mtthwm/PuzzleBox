@@ -13,6 +13,8 @@ const uint8_t ACCEL_CFG2_REG = 29;
 const uint8_t PWR_MGMT_REG = 107;
 const uint8_t PWR_MGMT2_REG = 108;
 
+const uint16_t AXIS_THRESHOLD = 6000;
+
 // HAL I2C struct
 I2C_HandleTypeDef hi2c2;
 
@@ -224,6 +226,9 @@ AccelDirection accelReadAxis() {
 	if (abs(X) > abs(Y)) {
 		if (abs(Z) > abs(X)) {
 			// Z is biggest
+			if (abs(Z) <  AXIS_THRESHOLD) {
+				return NO_AXIS;
+			}
 			if (Z > 0) {
 				return Z_POS;
 			}
@@ -233,6 +238,9 @@ AccelDirection accelReadAxis() {
 		}
 		else {
 			// X is biggest
+			if (abs(X) <  AXIS_THRESHOLD) {
+				return NO_AXIS;
+			}
 			if (X > 0) {
 				return X_POS;
 			}
@@ -240,10 +248,12 @@ AccelDirection accelReadAxis() {
 				return X_NEG;
 			}
 		}
-		
 	}
 	else {
 		// Y is biggest
+		if (abs(Y) <  AXIS_THRESHOLD) {
+				return NO_AXIS;
+			}
 		if (Y > 0) {
 			return Y_POS;
 		}
