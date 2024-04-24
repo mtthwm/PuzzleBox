@@ -644,7 +644,7 @@ void adcUtil_enableChannel (ADC_TypeDef* adcInstance, uint8_t channelNumber) {
 	adcInstance->CHSELR |= (1 << channelNumber);
 }
 
-static volatile uint16_t dmaUtil_buffer[2];
+static volatile uint16_t dmaUtil_buffer[4];
 void dmaUtil_configChannel () {
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 	
@@ -672,7 +672,7 @@ void dmaUtil_configChannel () {
 	DMA1_Channel1->CMAR = (uint32_t) dmaUtil_buffer;
 	
 	// Set the number of data to transmit
-	DMA1_Channel1->CNDTR = 2;
+	DMA1_Channel1->CNDTR = 4;
 	
 	// Activate the channel
 	DMA1_Channel1->CCR |= DMA_CCR_EN;
@@ -684,14 +684,16 @@ void config_knock_adc () {
 	
 	// Set PC0 to analog mode
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
-	GPIOC->MODER |= 3 << GPIO_MODER_MODER5_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER1_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER2_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER3_Pos;
 	
 	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR0;
-	GPIOB->PUPDR &= ~GPIO_PUPDR_PUPDR1;
 
-	ADC1 ->CHSELR |= ADC_CHSELR_CHSEL10 | ADC_CHSELR_CHSEL15;
 	adcUtil_enableChannel(ADC1, 10);
-	adcUtil_enableChannel(ADC1, 15);
+	adcUtil_enableChannel(ADC1, 11);
+	adcUtil_enableChannel(ADC1, 12);
+	adcUtil_enableChannel(ADC1, 13);
 
 	
 	adcUtil_calibrate(ADC1, 1);	
@@ -740,9 +742,6 @@ int main(void)
 	config_usart(115200);
 
 	usart_transmit_str("USART READY!\n");
-	
-	config_knock_adc();
-	
 	
 	HAL_Delay(1000);
 
@@ -808,8 +807,13 @@ int main(void)
 	usart_transmit_int(dmaUtil_buffer[0]);
 	usart_transmit_str("Channel 2: ");
 	usart_transmit_int(dmaUtil_buffer[1]);
+	usart_transmit_str("Channel 3: ");
+	usart_transmit_int(dmaUtil_buffer[2]);
+	usart_transmit_str("Channel 4: ");
+	usart_transmit_int(dmaUtil_buffer[3]);
 	//usart_transmit_int(ADC1->DR);
 	HAL_Delay(100);
+	continue;
 
 	switch (mainState) {
 		case Puzzle1:
