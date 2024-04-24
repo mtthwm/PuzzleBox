@@ -54,6 +54,15 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+void config_red ();
+void toggle_red (char mode);
+void config_blue ();
+void toggle_blue (char mode);
+void config_orange ();
+void toggle_orange (char mode);
+void config_green ();
+void toggle_green (char mode);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

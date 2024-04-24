@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "accel.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -144,6 +145,115 @@ void USART3_4_IRQHandler () {
 
 void playKnockPrompt();
 
+//////////////////////////////
+//// BOX SIDE-LED CONFIG /////
+//////////////////////////////
+void config_sideLEDs()
+{
+	GPIOA->MODER &= ~(0xC3FF << 16); // Clear state of Moder reg for pins [8-12], [15]
+	GPIOA->MODER |= (0x4155 << 16); // Pins [8-12], [15] to General Purpose Output
+	GPIOA->OTYPER &= ~(0x9F << 8); // Pins [8-12], [15] to Output push-pull
+	GPIOA->OSPEEDR &= ~(0xC3FF << 16); // Pins [8-12], [15] to Low Speed
+	GPIOA->PUPDR &= ~(0xC3FF << 16); // Pins [8-12], [15] to "No Pull-Up, Pull-Down"
+	GPIOA->ODR &= ~(0x9F << 8); // Pins [8-12], [15] set to OFF
+}
+
+// Pin PA8
+void toggle_LED_top(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 8);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 8);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 8);
+			break;
+	}
+}
+
+// Pin PA9
+void toggle_LED_bottom(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 9);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 9);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 9);
+			break;
+	}
+}
+
+// Pin PA10
+void toggle_LED_front(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 10);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 10);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 10);
+			break;
+	}
+}
+
+// Pin PA11
+void toggle_LED_back(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 11);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 11);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 11);
+			break;
+	}
+}
+
+// Pin PA12
+void toggle_LED_left(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 12);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 12);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 12);
+			break;
+	}
+}
+
+// Pin PA15
+
+void toggle_LED_right(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 15);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 15);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 15);
+			break;
+	}
+}
+
+//////////////////////////////////////////////
+
+//////////////////////////
+//// BOARD LED CONFIG ////
+//////////////////////////
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
 	GPIOC->MODER |= GPIO_MODER_MODER6_0;
@@ -228,6 +338,7 @@ void toggle_green (char mode) {
 			break;
 	}
 }
+/////////////////////////////////////////////////
 
 #define KNOCK_THRESH_LO 16
 #define KNOCK_THRESH_HI 18
@@ -311,8 +422,6 @@ int getKnockTiming() {
 	toggle_orange(1);
 	
 	// PUZZLE PHASE - After buzzer plays and a short delay
-	// Note that the cases denote puzzle progress, rather than
-	// actual knocks received. See comments
 	switch(knockCount){
 		case 0:
 			break;
@@ -363,7 +472,51 @@ int doPuzzle1() {
 	return getKnockTiming();
 }
 
+/**
+ * Uses the accelerometer orientation to check if the user
+ * (1) flips the box upside-down
+ * (2) places the box on its right side
+ * (3) Re-orients the box upright (default starting orientation)
+ *
+ * @return 1 if puzzle is completed, 0 otherwise
+ */
 int doPuzzle2() {
+	int orientation = accelReadAxis();
+	static uint16_t puzzleStage = 0;
+	switch(puzzleStage){
+		case 0:
+			puzzleStage = 1;
+			toggle_LED_bottom(1);
+			break;
+		// Wait until box is upside down
+		case 1:
+			if (orientation == Y_POS){
+				puzzleStage = 2;
+				toggle_LED_bottom(0);
+				toggle_LED_right(1);
+			}
+			break;
+		// Wait until box is on its right side
+		case 2:
+			if (orientation == X_POS){
+				puzzleStage = 3;
+				toggle_LED_right(0);
+				toggle_LED_top(1);
+			}
+			break;
+		// Wait until box is upright
+		case 3:
+			if (orientation == Y_NEG){
+				toggle_LED_top(0);
+				return 1;
+			}
+			break;
+		
+		// Error, reset puzzle back to stage 0
+		default:
+			puzzleStage = 0;
+			return 0;
+	}
 	return 0;
 }
 
@@ -432,8 +585,15 @@ void playKnockPrompt () {
 void playFanfare() {
 	uint16_t frequencies[] = {261, 329, 392, 523};
 	uint16_t durations[] = {200, 200, 200, 600};
-		
+	
 	playTune(frequencies, durations, 4);
+}
+
+// TODO: Function will flash all box's LEDs
+// Intended to give our puzzle completions look more appealing
+// Can also be used to indicate when we solve the puzzle box(?)
+void flashBoxLEDs(){
+
 }
 
 enum adcUtil_resolution {
@@ -545,6 +705,8 @@ void config_knock_adc () {
   */
 int main(void)
 {
+	
+	
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -553,24 +715,11 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* USER CODE BEGIN Init */
 	
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
+	/* Configure the system clock */
   SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  /* USER CODE BEGIN 2 */
-	
-	
-	enum PuzzleStateType mainState = Puzzle1;
+  /* USER CODE BEGIN Init */
 	
 	// Enable the RCC clocks
 	__HAL_RCC_USART3_CLK_ENABLE();
@@ -578,64 +727,121 @@ int main(void)
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
 	
-	pwmInit();
-		
 	config_red();
-	config_blue();
 	config_green();
+	config_blue();
 	config_orange();
+	config_sideLEDs(); // additional LED's on pins PA8 to PA13
+	
+	pwmInit();
 	
 	dmaUtil_configChannel();
 	config_knock_adc();
 	config_usart(115200);
 
 	usart_transmit_str("USART READY!\n");
+	
+	config_knock_adc();
+	
+	
+	HAL_Delay(1000);
+
+	int8_t initVal = initAccelerometer();
+	if(initVal == 1) {
+		while (1) {
+			toggle_red(2);
+			HAL_Delay(250);
+		}
+	}
+	else if(initVal == 2) {
+		while (1) {
+			toggle_orange(2);
+			HAL_Delay(250);
+		}
+	}
+	
+  /* USER CODE END Init */
+
+  
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  /* USER CODE BEGIN 2 */
+
+	/*
+	if(!accelSetupRegisters()) {
+		toggle_red(1);
+		while(1);
+	}
+	*/
+	accelSetupRegisters();
+	
+	usart_transmit_str("Config done!\n\r");
+	toggle_blue(1);
+	HAL_Delay(1000);
+	toggle_blue(0);
+	
+	
+	enum PuzzleStateType mainState = Puzzle1;
+	
+	
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-  {
-    /* USER CODE END WHILE */		
-		
-		usart_transmit_str("ADC OVR: ");
-		usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
-		usart_transmit_str("Channel 1: ");
-		usart_transmit_int(dmaUtil_buffer[0]);
-		usart_transmit_str("Channel 2: ");
-		usart_transmit_int(dmaUtil_buffer[1]);
-		//usart_transmit_int(ADC1->DR);
-		HAL_Delay(100);
-		continue;
-		
-		switch (mainState) {
-			case Puzzle1:
-				if (doPuzzle1()) {
-					playFanfare();
-					mainState = Puzzle2;
-				}
-				break;
-			
-			case Puzzle2:
-				toggle_blue(1);
-				if (doPuzzle2()) {
-					playFanfare();
-					mainState = Puzzle3;
-				}
-				break;
-				
-			case Puzzle3:
-				if (doPuzzle3()) {
-					playFanfare();
-					mainState = GameEnd;
-				}
-				break;
-			
-			case GameEnd:
-				doGameEnd();
+  {	
+		/*
+		if (HAL_GetTick() - lastKnockTransmissionTime >= 500) {
+			usart_transmit_int(knockCount);
+			lastKnockTransmissionTime = HAL_GetTick();
 		}
+		*/
+
+	usart_transmit_str("ADC OVR: ");
+	usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
+	usart_transmit_str("Channel 1: ");
+	usart_transmit_int(dmaUtil_buffer[0]);
+	usart_transmit_str("Channel 2: ");
+	usart_transmit_int(dmaUtil_buffer[1]);
+	//usart_transmit_int(ADC1->DR);
+	HAL_Delay(100);
+
+	switch (mainState) {
+		case Puzzle1:
+			if (doPuzzle1()) {
+				playFanfare();
+				mainState = Puzzle2;
+			}
+			break;
 		
+		case Puzzle2:
+			toggle_blue(1);	
+			if (doPuzzle2()) {
+				playFanfare();
+				mainState = Puzzle3;
+			}
+			break;
+
+		case Puzzle3:
+			if (doPuzzle3()) {
+				playFanfare();
+				mainState = GameEnd;
+			}
+			break;
+			
+		case GameEnd:
+			doGameEnd();
+		}
+
+		HAL_Delay(25);
+		
+		/* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
