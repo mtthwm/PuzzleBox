@@ -417,7 +417,7 @@
             <File>
               <FileName>accel.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\accel.c</FilePath>
+              <FilePath>..\Core\Src\accel.c</FilePath>
             </File>
           </Files>
         </Group>
