@@ -629,8 +629,20 @@ int doPuzzle3() {
 	return 0;
 }
 
+/**
+ * Ends the game by flashing box LEDs, then unlocking the servo-lock
+ * This function never exits. The system must reset.
+ */
 void doGameEnd() {
-	
+	victoryBoxLEDs();
+	unlock(); // TODO: Is this the correct servo angle for "unlock"?
+	while (1){
+		toggle_blue(2);
+		toggle_green(2);
+		toggle_orange(2);
+		toggle_red(2);
+		HAL_Delay(250);
+	}
 }
 
 void pwmInit() {
@@ -741,7 +753,7 @@ void victoryBoxLEDs(){
 		HAL_Delay(50);
 	}
 	for(int i = 0; i < 6; i++){
-		toggle_LED_all(1);
+		toggle_LED_all(2);
 		HAL_Delay(50);
 	}
 	toggle_LED_all(1);
@@ -976,6 +988,9 @@ int main(void)
 	HAL_Delay(100);
 	continue; // SKIP SWITCH HERE FOR DEBUG
 
+	HAL_Delay(5000);
+	lock(); // Lock the servo on start after 5 seconds
+
 	switch (mainState) {
 		case Puzzle1:
 			if (doPuzzle1()) {
@@ -1004,6 +1019,7 @@ int main(void)
 			
 		case GameEnd:
 			doGameEnd();
+			break;
 		}
 
 		HAL_Delay(25);
