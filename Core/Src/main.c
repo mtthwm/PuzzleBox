@@ -64,6 +64,9 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 
 
+void victoryBoxLEDs();
+void unlock ();
+
 ////////////////// UART ////////////////////////////////////////////////////////////////////////
 #define RX_BUFF_SIZE 2
 
@@ -715,7 +718,7 @@ void flashBoxLEDs(){
 	toggle_LED_all(0);
 	for(int i = 0; i < 6; i++){
 		toggle_LED_all(2);
-		HAL_Delay(50)
+		HAL_Delay(50);
 	}
 }
 
@@ -956,6 +959,8 @@ int main(void)
 	HAL_Delay(1000);
 	toggle_blue(0);
 	
+	HAL_Delay(5000);
+	lock(); // Lock the servo on start after 5 seconds
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
@@ -974,6 +979,7 @@ int main(void)
 		}
 		*/
 
+		/*
 	usart_transmit_str("ADC OVR: ");
 	usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
 	usart_transmit_str("Channel 1: ");
@@ -987,9 +993,9 @@ int main(void)
 	//usart_transmit_int(ADC1->DR);
 	HAL_Delay(100);
 	continue; // SKIP SWITCH HERE FOR DEBUG
+  */
 
-	HAL_Delay(5000);
-	lock(); // Lock the servo on start after 5 seconds
+	
 
 	switch (mainState) {
 		case Puzzle1:
