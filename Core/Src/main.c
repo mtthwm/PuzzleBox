@@ -142,6 +142,7 @@ void USART3_4_IRQHandler () {
 }
 ////////////////////////////////////////////////////////////////////////////////////////
 
+void playKnockPrompt();
 
 void config_red () {
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6_Msk);
@@ -228,11 +229,113 @@ void toggle_green (char mode) {
 	}
 }
 
-#define KNOCK_THRESH_LO 25
-#define KNOCK_THRESH_HI 35
+#define KNOCK_THRESH_LO 16
+#define KNOCK_THRESH_HI 18
 
 static volatile uint16_t knockCount = 0;
 static uint32_t lastKnockTransmissionTime = 0;
+
+uint32_t firstTime = 0;
+uint32_t secondTime = 0;
+
+/**
+ * Non-blocking function to handle Puzzle 1 - knock detection.
+ * Returns true if the puzzle is completed, false otherwise
+ *
+ * @return 1 if the puzzle is completed, 0 otherwise
+ */
+int getKnockTiming() {
+	// Function GLOBALS
+	const uint32_t INPUT_DELAY = 500; // Delay between the start of puzzle, and accepting user input
+	const uint32_t MIN_DELAY_BETWEEN = 400; // MIN time allowed that we will accept the first knock
+	const uint32_t MAX_DELAY_BETWEEN = 1000; // MAX time allowed that we will accept 2nd knock
+	const uint32_t DELAY_BEFORE_REPLAYING = 10000;
+	
+	uint32_t elapsedTime = 0;
+	
+	// Function Non-blocking sentinels (track if something has occured or not)
+	static uint32_t promptDelayDone = 0; // Non-blocking way to track if delay has elapsed
+	static uint32_t promptTunePlayed = 0; // Track if the buzzer has played the puzzle tune
+	static uint32_t firstTimerTimed = 0; // Track if the first knock time has been recorded
+	static uint32_t secondTimerTimed = 0; // Track if the second knock time has been recorded
+		
+	// Puzzle tune plays ONCE, disabled afterwards.
+	if (!promptTunePlayed){
+		firstTime = HAL_GetTick();
+		promptTunePlayed = 1;
+		playKnockPrompt();
+	}
+	
+	elapsedTime = HAL_GetTick() - firstTime;
+	
+	if (!promptDelayDone) {
+		// Wait a certain amount of time before taking user-input (knocks)
+		if (elapsedTime >= INPUT_DELAY) {
+			knockCount = 0;
+			promptDelayDone = 1;
+		} else {
+			return 0;
+		}
+	}
+	
+	char fail = 0;
+	
+	// How long has it been since we last prompted the user?
+	if (elapsedTime >= DELAY_BEFORE_REPLAYING) {
+		fail = 1; // Timed out before we got two knocks. Re-prompt the user
+	}
+	
+	if (secondTime != 0) { 
+		// The second knock was received!
+		uint32_t delayBetween = secondTime - firstTime;
+		usart_transmit_int(delayBetween);
+		if ((delayBetween < MIN_DELAY_BETWEEN) || (delayBetween > MAX_DELAY_BETWEEN)) {
+			fail = 1; // Timing was off. Re-prompt the user
+		} else {
+			return 1; // Timing was good!
+		}
+	}
+	
+	if (fail)
+	{
+		knockCount = 0;
+		firstTime = 0;
+		secondTime = 0;
+		promptDelayDone = 0;
+		promptTunePlayed = 0;
+		firstTimerTimed = 0;
+		secondTimerTimed = 0;
+		toggle_orange(0);
+	}
+	
+	toggle_orange(1);
+	
+	// PUZZLE PHASE - After buzzer plays and a short delay
+	// Note that the cases denote puzzle progress, rather than
+	// actual knocks received. See comments
+	switch(knockCount){
+		case 0:
+			break;
+		
+		// FIRST KNOCK - Simply log the timestamp of first knock
+		case 1:
+			if (!firstTimerTimed){
+				firstTime = HAL_GetTick();
+				firstTimerTimed = 1;
+			}
+			break;
+		
+		// WAIT PHASE -- wait for 2nd knock, or soft-reset puzzle if waiting too long
+		case 2:		
+			if (!secondTimerTimed) {
+				secondTime = HAL_GetTick();
+				secondTimerTimed = 1;
+			}
+			break;
+	};
+				
+	return 0;
+}
 
 enum PuzzleStateType {
 	Puzzle1,
@@ -242,26 +345,22 @@ enum PuzzleStateType {
 };
 
 void handleKnocks () {
-	static uint16_t debouncer = 0;
+	static uint32_t debouncer = 0;
 	debouncer <<= 1;
 	
 	if (KNOCK_THRESH_LO > ADC1->DR || ADC1->DR > KNOCK_THRESH_HI) {
 		debouncer |= 1;
 	}
 	
-	if (debouncer == 0x7FFF) {
+	if (debouncer == 0x7FFFFFFF) {
 		knockCount++;
-	}
-	if (HAL_GetTick() - lastKnockTransmissionTime >= 1000) {
-		usart_transmit_int(knockCount);
-		lastKnockTransmissionTime = HAL_GetTick();
 	}
 }
 
 // returns true when puzzle is solved
 int doPuzzle1() {
 	handleKnocks();
-	return 0;
+	return getKnockTiming();
 }
 
 int doPuzzle2() {
@@ -276,37 +375,65 @@ void doGameEnd() {
 	
 }
 
-void playFanfare() {
+
+void pwmInit() {
 	
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_TIM3_CLK_ENABLE();
+	
+	GPIO_InitTypeDef initStrPWM = {GPIO_PIN_5,
+	GPIO_MODE_AF_PP,
+	GPIO_SPEED_FREQ_LOW,
+	GPIO_NOPULL,
+	GPIO_AF1_TIM3};
+	
+	HAL_GPIO_Init(GPIOB, &initStrPWM);
+	
+	TIM3 -> PSC = 2; // Set PSC to divide clock by 250 (equivalent to 1/32 of a ms)
+	TIM3 -> ARR = 100; // 40 * 1/32 = 1.25 ms (aka 800 hz)
+	
+	TIM3 -> CCMR1 &= ~TIM_CCMR1_CC2S; // Clear CC2S aka set CC1S to 0b0000
+	TIM3 -> CCMR1 |= TIM_CCMR1_OC2M; // Set OC2M to PWM Output 2 mode (0b111)
+	TIM3 -> CCMR1 |= TIM_CCMR1_OC2PE; // Preload enable channel 2
+	TIM3 -> CCER |= TIM_CCER_CC2E; // Enable capture/compare for channel 2
+	
+	TIM3 -> CCR2 = 2; // Set duty cycle to 20% (of ARR)
+		
 }
 
-void init() {
-	
-	// none of this works yet
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+void playTone(uint16_t freq) {
+	uint16_t arr = 8000000 / (3 * freq);
+	TIM3->ARR = arr;
+	TIM3->CCR2 = arr / 2;
+}
 
-	//enable clock to timer 3
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-	
-	// set PWM mode 1 on channel 2
-	TIM3->CCMR1 &= ~(TIM_CCMR1_OC2M_Msk); // clear
-	TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC2M_Pos); // PWM mode 1
-	
-	//enable
-	TIM3->CCER |= TIM_CCER_CC2E;
-	
-	TIM3->PSC = (short)99; // divide clock to 8000 khz
-	TIM3->ARR = 100;
-	
-	// duty cycle
-	TIM3->CCR2 = 20;
-	
-	//preload
-	TIM3->CCMR1 |= TIM_CCMR1_OC2PE;
-	
-	// alternate function
-	GPIOC->AFR[0] &= ~GPIO_AFRL_AFRL7_Msk;
-	
+void playTune(uint16_t *frequencies, uint16_t *durations, uint16_t length) {
+	for (int i = 0; i < length; i++) {
+		if (frequencies[i] == 0) {
+			TIM3->CR1 &= ~TIM_CR1_CEN;  // stop the timer
+		}
+		else {
+			TIM3->CR1 |= TIM_CR1_CEN;  // start the timer
+			playTone(frequencies[i]);
+		}
+		
+		HAL_Delay(durations[i]);
+	}
+	TIM3->CR1 &= ~TIM_CR1_CEN;  // stop the timer after the tune completes
+}
+
+void playKnockPrompt () {
+	uint16_t frequencies[10] = {196, 0, 146, 0, 146, 0, 164, 0, 146};
+	uint16_t durations[10] = {500, 10, 250, 10, 250, 10, 250, 260, 500};
+
+	playTune(frequencies, durations, 10);
+}
+
+void playFanfare() {
+	uint16_t frequencies[] = {261, 329, 392, 523};
+	uint16_t durations[] = {200, 200, 200, 600};
+		
+	playTune(frequencies, durations, 4);
 }
 
 enum adcUtil_resolution {
@@ -428,6 +555,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+	
 
   /* USER CODE END Init */
 
@@ -446,10 +574,11 @@ int main(void)
 	
 	// Enable the RCC clocks
 	__HAL_RCC_USART3_CLK_ENABLE();
-
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
+	
+	pwmInit();
 		
 	config_red();
 	config_blue();
@@ -489,6 +618,7 @@ int main(void)
 				break;
 			
 			case Puzzle2:
+				toggle_blue(1);
 				if (doPuzzle2()) {
 					playFanfare();
 					mainState = Puzzle3;
@@ -506,9 +636,6 @@ int main(void)
 				doGameEnd();
 		}
 		
-				
-		HAL_Delay(1);		
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
