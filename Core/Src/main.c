@@ -44,8 +44,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
 /* USER CODE BEGIN PV */
+
+// Contains values for 3 photoresistors and PIEZO
+// [0] contains piezo
+// [1] is the top photoresistor
+// [2] is the bottom photoresistor
+// [3] is the back photoresistor
 
 /* USER CODE END PV */
 
@@ -58,6 +63,9 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
+void victoryBoxLEDs();
+void unlock ();
 
 ////////////////// UART ////////////////////////////////////////////////////////////////////////
 #define RX_BUFF_SIZE 2
@@ -237,7 +245,6 @@ void toggle_LED_left(char mode){
 }
 
 // Pin PA15
-
 void toggle_LED_right(char mode){
 	switch(mode){
 		case 0:
@@ -248,6 +255,39 @@ void toggle_LED_right(char mode){
 			break;
 		case 2:
 			GPIOA->ODR ^= (1 << 15);
+			break;
+	}
+}
+
+/**
+ * Configures all LEDs based on input.
+ * @param mode '0' = ALL OFF | '1' = ALL ON | '2' = ALL INVERT
+ */
+void toggle_LED_all(char mode){
+	switch(mode){
+		case 0:
+			toggle_LED_top(0);
+			toggle_LED_bottom(0);
+			toggle_LED_front(0);
+			toggle_LED_back(0);
+			toggle_LED_left(0);
+			toggle_LED_right(0);
+			break;
+		case 1:
+			toggle_LED_top(1);
+			toggle_LED_bottom(1);
+			toggle_LED_front(1);
+			toggle_LED_back(1);
+			toggle_LED_left(1);
+			toggle_LED_right(1);
+			break;
+		case 2:
+			toggle_LED_top(2);
+			toggle_LED_bottom(2);
+			toggle_LED_front(2);
+			toggle_LED_back(2);
+			toggle_LED_left(2);
+			toggle_LED_right(2);
 			break;
 	}
 }
@@ -344,6 +384,22 @@ void toggle_green (char mode) {
 /////////////////////////////////////////////////
 
 #define KNOCK_THRESH_HI 3500
+
+////////////////////////////////////
+///// PHOTORESISTOR GET() functions
+/////////////////////////////////////
+uint16_t getResistorTop(){
+	return dmaUtil_buffer[1];
+}
+
+uint16_t getResistorBottom(){
+	return dmaUtil_buffer[2];
+}
+
+uint16_t getResistorBack(){
+	return dmaUtil_buffer[3];
+}
+////////////////////////////////////////////
 
 static volatile uint16_t knockCount = 0;
 static uint32_t lastKnockTransmissionTime = 0;
@@ -521,12 +577,72 @@ int doPuzzle2() {
 	return 0;
 }
 
+/**
+ * Puzzle 3 - Photoresistor Checks
+ * Puzzle will include lighting the photoresistors
+ * Each photoresistor will be associated with an LED
+ * A lit LED indicates the hole will need to be lit up
+ *
+ * This function will sequentially check if
+ * (1) The top photoresistor is lit up
+ * (2) The bottom photoresistor is lit up
+ * (3) Both the top and front photoresistors are lit (small challenge)
+ */
 int doPuzzle3() {
+	const uint16_t LIGHT_THRESHOLD = 3700;
+	static uint16_t puzzleStage = 0;
+
+	switch(puzzleStage){
+		case 0:
+			toggle_LED_top(1);
+			puzzleStage = 1;
+			break;
+
+		// Light TOP resistor
+		case 1:
+			if (getResistorTop() > LIGHT_THRESHOLD){
+				toggle_LED_top(0);
+				toggle_LED_bottom(1);
+				puzzleStage = 2;
+			}
+			break;
+		
+		// Light BOTTOM resistor
+		case 2:
+			if(getResistorBottom() > LIGHT_THRESHOLD){
+				toggle_LED_bottom(0);
+				toggle_LED_back(1);
+				toggle_LED_top(1);
+				puzzleStage = 3;
+			}
+			break;
+
+		// Light TOP and BACK resistor
+		case 3:
+			if(getResistorTop() > LIGHT_THRESHOLD && getResistorBack() > LIGHT_THRESHOLD){
+				toggle_LED_top(0);
+				toggle_LED_back(0);
+				return 1;
+			}
+			break;
+	}
 	return 0;
 }
 
+/**
+ * Ends the game by flashing box LEDs, then unlocking the servo-lock
+ * This function never exits. The system must reset.
+ */
 void doGameEnd() {
-	
+	victoryBoxLEDs();
+	unlock(); // TODO: Is this the correct servo angle for "unlock"?
+	while (1){
+		toggle_blue(2);
+		toggle_green(2);
+		toggle_orange(2);
+		toggle_red(2);
+		HAL_Delay(250);
+	}
 }
 
 void pwmInit() {
@@ -590,11 +706,57 @@ void playFanfare() {
 	playTune(frequencies, durations, 4);
 }
 
-// TODO: Function will flash all box's LEDs
-// Intended to give our puzzle completions look more appealing
-// Can also be used to indicate when we solve the puzzle box(?)
+/**
+ * Function that flashes ALL box LEDs 5 times
+ * Intended to indicate progress in the puzzle.
+ * Function is somewhat blokcing, uses HAL_Delay
+ */
 void flashBoxLEDs(){
+	toggle_LED_all(0);
+	for(int i = 0; i < 6; i++){
+		toggle_LED_all(2);
+		HAL_Delay(50);
+	}
+}
 
+/**
+ * Used to indicate something major occuring (the puzzle box being solved)
+ * Function is somewhat blocking, using HAL_Delay
+ */
+void victoryBoxLEDs(){
+	toggle_LED_all(0);
+	for (int i = 0; i < 6; i++){
+		// All on sequentially
+		toggle_LED_front(1);
+		HAL_Delay(50);
+
+		toggle_LED_left(1);
+		HAL_Delay(50);
+
+		toggle_LED_back(1);
+		HAL_Delay(50);
+
+		toggle_LED_right(1);
+		HAL_Delay(50);
+
+		// All off sequentially
+		toggle_LED_front(0);
+		HAL_Delay(50);
+
+		toggle_LED_left(0);
+		HAL_Delay(50);
+
+		toggle_LED_back(0);
+		HAL_Delay(50);
+
+		toggle_LED_right(0);
+		HAL_Delay(50);
+	}
+	for(int i = 0; i < 6; i++){
+		toggle_LED_all(2);
+		HAL_Delay(50);
+	}
+	toggle_LED_all(1);
 }
 
 void config_knock_adc () {
@@ -602,16 +764,19 @@ void config_knock_adc () {
 	
 	// Set PC0 to analog mode
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
-	GPIOC->MODER |= 3 << GPIO_MODER_MODER1_Pos;
-	GPIOC->MODER |= 3 << GPIO_MODER_MODER2_Pos;
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER3_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER4_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER5_Pos;
 	
 	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR0;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR1;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR2;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR3;
 
 	adcUtil_enableChannel(ADC1, 10);
-	adcUtil_enableChannel(ADC1, 11);
-	adcUtil_enableChannel(ADC1, 12);
 	adcUtil_enableChannel(ADC1, 13);
+	adcUtil_enableChannel(ADC1, 14);
+	adcUtil_enableChannel(ADC1, 15);
 
 	
 	adcUtil_calibrate(ADC1, 1);	
@@ -660,7 +825,7 @@ int main(void)
 	config_green();
 	config_blue();
 	config_orange();
-	config_sideLEDs(); // additional LED's on pins PA8 to PA13
+	config_sideLEDs(); // additional LED's on pins PA8-PA12, and PA15
 	
 	pwmInit();
 	
@@ -713,6 +878,8 @@ int main(void)
 	HAL_Delay(1000);
 	toggle_blue(0);
 	
+	HAL_Delay(5000);
+	lock(); // Lock the servo on start after 5 seconds
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
@@ -724,41 +891,43 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {	
+	switch (mainState) {
+		case Puzzle1:
+			if (doPuzzle1()) {
+				playFanfare();
+				flashBoxLEDs();
+				mainState = Puzzle2;
+			}
+			break;
 		
-		switch (mainState) {
-			case Puzzle1:
-				if (doPuzzle1()) {
-					toggle_blue(1);
-					playFanfare();
-					mainState = Puzzle2;
-				}
-				break;
-		
-			case Puzzle2:
-				if (doPuzzle2()) {
-					playFanfare();
-					mainState = Puzzle3;
-				}
-				break;
+		case Puzzle2:
+			toggle_blue(1);	
+			if (doPuzzle2()) {
+				playFanfare();
+				flashBoxLEDs();
+				mainState = Puzzle3;
+			}
+			break;
 
-			case Puzzle3:
-				if (doPuzzle3()) {
-					playFanfare();
-					mainState = GameEnd;
-				}
-				break;
-				
-			case GameEnd:
-				doGameEnd();
+		case Puzzle3:
+			if (doPuzzle3()) {
+				playFanfare();
+				flashBoxLEDs();
+				mainState = GameEnd;
+			}
+			break;
+			
+		case GameEnd:
+			doGameEnd();
+			break;
 		}
 	
 		HAL_Delay(1);
-		
-		/* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
+  /* USER CODE END WHILE */
+
+	/* USER CODE BEGIN 3 */
+	/* USER CODE END 3 */
 }
 
 /**
