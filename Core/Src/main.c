@@ -161,12 +161,31 @@ void playKnockPrompt();
 //////////////////////////////
 void config_sideLEDs()
 {
-	GPIOA->MODER &= ~(0xC3FF << 16); // Clear state of Moder reg for pins [8-12], [15]
-	GPIOA->MODER |= (0x4155 << 16); // Pins [8-12], [15] to General Purpose Output
-	GPIOA->OTYPER &= ~(0x9F << 8); // Pins [8-12], [15] to Output push-pull
-	GPIOA->OSPEEDR &= ~(0xC3FF << 16); // Pins [8-12], [15] to Low Speed
-	GPIOA->PUPDR &= ~(0xC3FF << 16); // Pins [8-12], [15] to "No Pull-Up, Pull-Down"
-	GPIOA->ODR &= ~(0x9F << 8); // Pins [8-12], [15] set to OFF
+	// Clear state of Moder reg for pins [8-12], [15] (00)
+	GPIOA->MODER &= ~((1 << 31) | (1 << 30));
+	GPIOA->MODER &= ~((1 << 24) | (1 << 22) | (1 << 20) | (1 << 18) | (1 << 16));
+
+	// Pins [8-12], [15] to General Purpose Output (01)
+	GPIOA->MODER |= (1 << 30);
+	GPIOA->MODER |= (1 << 24) | (1 << 22) | (1 << 20) | (1 << 18) | (1 << 16);
+
+
+	// Pins [8-12], [15] to Output push-pull (0)
+	GPIOA->OTYPER &= ~((1 << 15) | (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8));
+
+	// Pins [8-12], [15] to Low Speed (x0)
+	GPIOA->OSPEEDR &= ~((1 << 30) | (1 << 24) | (1 << 22) | (1 << 20) | (1 << 18) | (1 << 16));
+
+	// Pins [8-12], [15] to "No Pull-Up, Pull-Down" (00)
+	GPIOA->PUPDR &= ~((1 << 31) | (1 << 30)); // pin 15
+	GPIOA->PUPDR &= ~((1 << 25) | (1 << 24)); // 12
+	GPIOA->PUPDR &= ~((1 << 23) | (1 << 22)); // 11
+	GPIOA->PUPDR &= ~((1 << 21) | (1 << 20)); // 10
+	GPIOA->PUPDR &= ~((1 << 19) |(1 << 18)); // 9
+	GPIOA->PUPDR &= ~((1 << 17) | (1 << 16)); // 8
+
+	 // Pins [8-12], [15] set to OFF (0)
+	GPIOA->ODR &= ~((1 << 15) | (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8));
 }
 
 // Pin PA8
