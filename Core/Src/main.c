@@ -863,6 +863,8 @@ int main(void)
 	config_orange();
 	config_sideLEDs(); // additional LED's on pins PA8-PA12, and PA15
 	
+	
+	
 	pwmInit();
 	
 	dmaUtil_configChannel();
@@ -920,7 +922,9 @@ int main(void)
 	enum PuzzleStateType mainState = Puzzle1;
 	
 	//toggle_LED_all(1);
+	//victoryBoxLEDs();
 	//while(1);
+	
 
   /* USER CODE END 2 */
 
