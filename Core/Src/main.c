@@ -849,16 +849,19 @@ void config_knock_adc () {
 	
 	// Set PC0 to analog mode
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER0_Pos;
-	GPIOC->MODER |= 3 << GPIO_MODER_MODER1_Pos;
-	GPIOC->MODER |= 3 << GPIO_MODER_MODER2_Pos;
 	GPIOC->MODER |= 3 << GPIO_MODER_MODER3_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER4_Pos;
+	GPIOC->MODER |= 3 << GPIO_MODER_MODER5_Pos;
 	
 	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR0;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR1;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR2;
+	GPIOC->PUPDR &= ~GPIO_PUPDR_PUPDR3;
 
 	adcUtil_enableChannel(ADC1, 10);
-	adcUtil_enableChannel(ADC1, 11);
-	adcUtil_enableChannel(ADC1, 12);
 	adcUtil_enableChannel(ADC1, 13);
+	adcUtil_enableChannel(ADC1, 14);
+	adcUtil_enableChannel(ADC1, 15);
 
 	
 	adcUtil_calibrate(ADC1, 1);	
