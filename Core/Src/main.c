@@ -562,6 +562,12 @@ int doPuzzle1() {
  * (3) Re-orients the box upright (default starting orientation)
  *
  * @return 1 if puzzle is completed, 0 otherwise
+
+
+notes:
+tilting back towards up ==> Y_POS
+tilting right towards top ==> X_POS
+front side up ==> Y_NEG
  */
 int doPuzzle2() {
 	int orientation = accelReadAxis();
@@ -573,7 +579,7 @@ int doPuzzle2() {
 			break;
 		// Wait until box is upside down
 		case 1:
-			if (orientation == Y_POS){
+			if (orientation == Z_NEG){
 				puzzleStage = 2;
 				toggle_LED_bottom(0);
 				toggle_LED_right(1);
@@ -589,7 +595,7 @@ int doPuzzle2() {
 			break;
 		// Wait until box is upright
 		case 3:
-			if (orientation == Y_NEG){
+			if (orientation == Z_POS){
 				toggle_LED_top(0);
 				return 1;
 			}
@@ -876,7 +882,6 @@ int main(void)
 	dmaUtil_configChannel();
 	config_knock_adc();
 	servoUtil_configServo();
-	lock();
 	config_usart(115200);
 
 	usart_transmit_str("USART READY!\n");

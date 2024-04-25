@@ -13,7 +13,7 @@ const uint8_t ACCEL_CFG2_REG = 29;
 const uint8_t PWR_MGMT_REG = 107;
 const uint8_t PWR_MGMT2_REG = 108;
 
-const uint16_t AXIS_THRESHOLD = 7000;
+const uint16_t AXIS_THRESHOLD = 7500;
 
 // HAL I2C struct
 I2C_HandleTypeDef hi2c2;
