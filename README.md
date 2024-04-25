@@ -6,6 +6,7 @@ This is a project built for our ECE 5780 (Embedded Systems) final project. We bu
 ### Puzzle 1: Knock and Response 
 
 The buzzer plays a common knock rhythm, and the user must respond to finish the rhythm. 
+![Image of the common door knock rhythm that everyone knows](https://github.com/mtthwm/PuzzleBox/blob/main/Images/Knock%20Rhythm.png?raw=true)
 
 ### Puzzle 2:  
 
