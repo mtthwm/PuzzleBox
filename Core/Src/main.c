@@ -162,7 +162,7 @@ void playKnockPrompt();
 void config_sideLEDs()
 {
 	
-	GPIO_InitTypeDef initStr = {GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_8 | GPIO_PIN_9,
+	GPIO_InitTypeDef initStr = {GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_15,
 	GPIO_MODE_OUTPUT_PP,
 	GPIO_SPEED_FREQ_LOW,
 	GPIO_NOPULL};
@@ -225,8 +225,38 @@ void toggle_LED_bottom(char mode){
 	}
 }
 
-// Pin PA10
+// Pin PA0
 void toggle_LED_front(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 0);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 0);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 0);
+			break;
+	}
+}
+
+// Pin PA1
+void toggle_LED_back(char mode){
+	switch(mode){
+		case 0:
+			GPIOA->ODR &= ~(1 << 1);
+			break;
+		case 1:
+			GPIOA->ODR |= (1 << 1);
+			break;
+		case 2:
+			GPIOA->ODR ^= (1 << 1);
+			break;
+	}
+}
+
+// Pin PA10
+void toggle_LED_left(char mode){
 	switch(mode){
 		case 0:
 			GPIOA->ODR &= ~(1 << 10);
@@ -236,36 +266,6 @@ void toggle_LED_front(char mode){
 			break;
 		case 2:
 			GPIOA->ODR ^= (1 << 10);
-			break;
-	}
-}
-
-// Pin PA11
-void toggle_LED_back(char mode){
-	switch(mode){
-		case 0:
-			GPIOA->ODR &= ~(1 << 11);
-			break;
-		case 1:
-			GPIOA->ODR |= (1 << 11);
-			break;
-		case 2:
-			GPIOA->ODR ^= (1 << 11);
-			break;
-	}
-}
-
-// Pin PA12
-void toggle_LED_left(char mode){
-	switch(mode){
-		case 0:
-			GPIOA->ODR &= ~(1 << 12);
-			break;
-		case 1:
-			GPIOA->ODR |= (1 << 12);
-			break;
-		case 2:
-			GPIOA->ODR ^= (1 << 12);
 			break;
 	}
 }
@@ -744,7 +744,6 @@ void playFanfare(int num) {
 		case 3:
 			playTune(chord3, durations2, 7);
 			break;
-		
 	}
 	
 }
