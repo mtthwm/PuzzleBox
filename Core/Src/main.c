@@ -699,11 +699,28 @@ void playKnockPrompt () {
 	playTune(frequencies, durations, 10);
 }
 
-void playFanfare() {
-	uint16_t frequencies[] = {261, 329, 392, 523};
+void playFanfare(int num) {
+	uint16_t chord1[] = {261, 329, 392, 523};
+	uint16_t chord2[] = {294, 370, 440, 587};
+	uint16_t chord3[] = {330, 415, 494, 831, 659, 831, 988};
 	uint16_t durations[] = {200, 200, 200, 600};
+	uint16_t durations2[] = {200, 200, 200, 200, 200, 200, 600};
 	
-	playTune(frequencies, durations, 4);
+	switch (num) {
+		case 1:
+			playTune(chord1, durations, 4);
+			break;
+		
+		case 2:
+			playTune(chord2, durations, 4);
+			break;
+		
+		case 3:
+			playTune(chord3, durations2, 7);
+			break;
+		
+	}
+	
 }
 
 /**
@@ -883,7 +900,8 @@ int main(void)
 	
 	enum PuzzleStateType mainState = Puzzle1;
 	
-	
+	//toggle_LED_all(1);
+	//while(1);
 
   /* USER CODE END 2 */
 
@@ -891,10 +909,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {	
+		/*
+		if (HAL_GetTick() - lastKnockTransmissionTime >= 500) {
+			usart_transmit_int(knockCount);
+			lastKnockTransmissionTime = HAL_GetTick();
+		}
+		*/
+
+	/*	
+	usart_transmit_str("ADC OVR: ");
+	usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
+	usart_transmit_str("Channel 1: ");
+	usart_transmit_int(dmaUtil_buffer[0]);
+	usart_transmit_str("Channel 2: ");
+	usart_transmit_int(dmaUtil_buffer[1]);
+	usart_transmit_str("Channel 3: ");
+	usart_transmit_int(dmaUtil_buffer[2]);
+	usart_transmit_str("Channel 4: ");
+	usart_transmit_int(dmaUtil_buffer[3]);*/
+	//usart_transmit_int(ADC1->DR);
+	//HAL_Delay(100);
+	//continue; // SKIP SWITCH HERE FOR DEBUG
+  
+
 	switch (mainState) {
 		case Puzzle1:
 			if (doPuzzle1()) {
-				playFanfare();
+				playFanfare(1);
 				flashBoxLEDs();
 				mainState = Puzzle2;
 			}
@@ -903,7 +944,7 @@ int main(void)
 		case Puzzle2:
 			toggle_blue(1);	
 			if (doPuzzle2()) {
-				playFanfare();
+				playFanfare(2);
 				flashBoxLEDs();
 				mainState = Puzzle3;
 			}
@@ -911,7 +952,7 @@ int main(void)
 
 		case Puzzle3:
 			if (doPuzzle3()) {
-				playFanfare();
+				playFanfare(3);
 				flashBoxLEDs();
 				mainState = GameEnd;
 			}
