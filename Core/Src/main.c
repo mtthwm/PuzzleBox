@@ -196,7 +196,7 @@ void config_sideLEDs()
 }
 
 // Pin PA8
-void toggle_LED_top(char mode){
+void toggle_LED_front(char mode){
 	switch(mode){
 		case 0:
 			GPIOA->ODR &= ~(1 << 8);
@@ -211,7 +211,7 @@ void toggle_LED_top(char mode){
 }
 
 // Pin PA9
-void toggle_LED_bottom(char mode){
+void toggle_LED_back(char mode){
 	switch(mode){
 		case 0:
 			GPIOA->ODR &= ~(1 << 9);
@@ -226,7 +226,7 @@ void toggle_LED_bottom(char mode){
 }
 
 // Pin PA0
-void toggle_LED_front(char mode){
+void toggle_LED_top(char mode){
 	switch(mode){
 		case 0:
 			GPIOA->ODR &= ~(1 << 0);
@@ -241,7 +241,7 @@ void toggle_LED_front(char mode){
 }
 
 // Pin PA1
-void toggle_LED_back(char mode){
+void toggle_LED_bottom(char mode){
 	switch(mode){
 		case 0:
 			GPIOA->ODR &= ~(1 << 1);
