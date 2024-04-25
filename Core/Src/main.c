@@ -18,12 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "accel.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
 #include "servo.h"
+#include "accel.h"
+#include "adc.h"
 
 /* USER CODE END Includes */
 
@@ -342,8 +343,7 @@ void toggle_green (char mode) {
 }
 /////////////////////////////////////////////////
 
-#define KNOCK_THRESH_LO 16
-#define KNOCK_THRESH_HI 18
+#define KNOCK_THRESH_HI 3500
 
 static volatile uint16_t knockCount = 0;
 static uint32_t lastKnockTransmissionTime = 0;
@@ -401,7 +401,6 @@ int getKnockTiming() {
 	if (secondTime != 0) { 
 		// The second knock was received!
 		uint32_t delayBetween = secondTime - firstTime;
-		usart_transmit_int(delayBetween);
 		if ((delayBetween < MIN_DELAY_BETWEEN) || (delayBetween > MAX_DELAY_BETWEEN)) {
 			fail = 1; // Timing was off. Re-prompt the user
 		} else {
@@ -456,14 +455,14 @@ enum PuzzleStateType {
 };
 
 void handleKnocks () {
-	static uint32_t debouncer = 0;
+	static uint8_t debouncer = 0;
 	debouncer <<= 1;
 	
-	if (KNOCK_THRESH_LO > ADC1->DR || ADC1->DR > KNOCK_THRESH_HI) {
+	if (dmaUtil_buffer[0] > KNOCK_THRESH_HI) {
 		debouncer |= 1;
 	}
 	
-	if (debouncer == 0x7FFFFFFF) {
+	if (debouncer == 0x1) {
 		knockCount++;
 	}
 }
@@ -598,89 +597,6 @@ void flashBoxLEDs(){
 
 }
 
-enum adcUtil_resolution {
-	adcUtil_12bit,
-	adcUtil_10bit,
-	adcUtil_8bit,
-	adcUtil_6bit
-};
-
-void adcUtil_setup (ADC_TypeDef* adcInstance, enum adcUtil_resolution res) {
-	// Enable the clock to the ADC
-	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
-	
-	// Set ADC to appropriate bit resolution, continuous conversion mode, hardware triggers disabled.
-	adcInstance->CFGR1 |= res << ADC_CFGR1_RES_Pos;
-	adcInstance->CFGR1 |= ADC_CFGR1_CONT;
-	adcInstance->CFGR1 &= ~ADC_CFGR1_ALIGN_Msk;
-	adcInstance->CFGR2 |= ADC_CFGR2_CKMODE_1;
-}
-
-void adcUtil_calibrate (ADC_TypeDef* adcInstance, char enableDMA) {
-	// Start calibration
-	adcInstance->CR |= ADC_CR_ADCAL;
-			
-	// Wait until the calibration bit is reset.
-	while (adcInstance->CR & ADC_CR_ADCAL_Msk) {
-		HAL_Delay(1);
-	}
-		
-	// Enable the ADC
-	adcInstance->CR |= ADC_CR_ADEN;
-	
-	// Wait until the ADC is ready
-	while (!(adcInstance->ISR & ADC_ISR_ADRDY)) {
-		HAL_Delay(1);
-	}
-	
-	if (enableDMA) {
-		adcInstance->CFGR1 |= ADC_CFGR1_DMACFG;
-		adcInstance->CFGR1 |= ADC_CFGR1_DMAEN;
-	}
-		
-	// Signal that we are ready for conversion
-	adcInstance->CR |= ADC_CR_ADSTART;
-}
-void adcUtil_enableChannel (ADC_TypeDef* adcInstance, uint8_t channelNumber) {
-	// Set ADC to use channel 10 (ADC_IN10 additional function)
-	adcInstance->CHSELR |= (1 << channelNumber);
-}
-
-static volatile uint16_t dmaUtil_buffer[4];
-void dmaUtil_configChannel () {
-	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
-	
-	// Enable ADC to DMA remap on DMA channel
-	SYSCFG->CFGR1 &= ~SYSCFG_CFGR1_ADC_DMA_RMP;
-	
-	// Set memory size of our DMA transfers to 16 bit
-	DMA1_Channel1->CCR |= DMA_CCR_MSIZE_0;
-	
-	// Set peripheral register size of our DMA transfers to 16 bit
-	DMA1_Channel1->CCR |= DMA_CCR_PSIZE_0;
-	
-	// Set the memory address registers to increment after each read
-	DMA1_Channel1->CCR |= DMA_CCR_MINC;
-	DMA1_Channel1->CCR &= ~DMA_CCR_PINC;
-	
-	// Set circular mode
-	DMA1_Channel1->CCR |= DMA_CCR_CIRC;
-	
-	// Set priority to high
-	DMA1_Channel1->CCR |= DMA_CCR_PL_1;
-	
-	// Configure the registers to move data between
-	DMA1_Channel1->CPAR = (uint32_t) &(ADC1->DR);
-	DMA1_Channel1->CMAR = (uint32_t) dmaUtil_buffer;
-	
-	// Set the number of data to transmit
-	DMA1_Channel1->CNDTR = 4;
-	
-	// Activate the channel
-	DMA1_Channel1->CCR |= DMA_CCR_EN;
-	
-}
-
 void config_knock_adc () {
 	adcUtil_setup(ADC1, adcUtil_12bit);
 	
@@ -789,6 +705,7 @@ int main(void)
 		while(1);
 	}
 	*/
+	
 	accelSetupRegisters();
 	
 	usart_transmit_str("Config done!\n\r");
@@ -807,55 +724,35 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {	
-		/*
-		if (HAL_GetTick() - lastKnockTransmissionTime >= 500) {
-			usart_transmit_int(knockCount);
-			lastKnockTransmissionTime = HAL_GetTick();
-		}
-		*/
-
-	usart_transmit_str("ADC OVR: ");
-	usart_transmit_int(ADC1->ISR & ADC_ISR_OVR);
-	usart_transmit_str("Channel 1: ");
-	usart_transmit_int(dmaUtil_buffer[0]);
-	usart_transmit_str("Channel 2: ");
-	usart_transmit_int(dmaUtil_buffer[1]);
-	usart_transmit_str("Channel 3: ");
-	usart_transmit_int(dmaUtil_buffer[2]);
-	usart_transmit_str("Channel 4: ");
-	usart_transmit_int(dmaUtil_buffer[3]);
-	//usart_transmit_int(ADC1->DR);
-	HAL_Delay(100);
-	continue;
-
-	switch (mainState) {
-		case Puzzle1:
-			if (doPuzzle1()) {
-				playFanfare();
-				mainState = Puzzle2;
-			}
-			break;
 		
-		case Puzzle2:
-			toggle_blue(1);	
-			if (doPuzzle2()) {
-				playFanfare();
-				mainState = Puzzle3;
-			}
-			break;
+		switch (mainState) {
+			case Puzzle1:
+				if (doPuzzle1()) {
+					toggle_blue(1);
+					playFanfare();
+					mainState = Puzzle2;
+				}
+				break;
+		
+			case Puzzle2:
+				if (doPuzzle2()) {
+					playFanfare();
+					mainState = Puzzle3;
+				}
+				break;
 
-		case Puzzle3:
-			if (doPuzzle3()) {
-				playFanfare();
-				mainState = GameEnd;
-			}
-			break;
-			
-		case GameEnd:
-			doGameEnd();
+			case Puzzle3:
+				if (doPuzzle3()) {
+					playFanfare();
+					mainState = GameEnd;
+				}
+				break;
+				
+			case GameEnd:
+				doGameEnd();
 		}
-
-		HAL_Delay(25);
+	
+		HAL_Delay(1);
 		
 		/* USER CODE END WHILE */
 
