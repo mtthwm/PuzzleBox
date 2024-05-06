@@ -38,8 +38,8 @@ Using a servo, unlock the box for opening. Puzzle restarts on close.
 
 ## Pins
 - I2C:  
-  - SCL: B10 
-  - SDA: B11 
+  - SCL: PB10 
+  - SDA: PB11 
 
 - UART (debug):  
   - TX: PC10 
@@ -47,16 +47,39 @@ Using a servo, unlock the box for opening. Puzzle restarts on close.
 
 - ADC: PC0-3
   - Piezo: PC0 
-  - Photoresistors PC1,2,3
+  - Photoresistors PC3,4,5
 
 - Buzzer: PB5 
 
 - Box-Side LEDs 
-   - PA8 -- Top LED 
-   - PA9 – Base LED 
-   - PA10 – Front LED 
-   - PA11 – Back LED 
-   - PA12 – Left Side LED
+   - PA0 -- Top LED 
+   - PA1 – Base LED 
+   - PA8 – Front LED 
+   - PA9 – Back LED 
+   - PA10 – Left Side LED
    - PA15 – Right Side LED	 
 
 - Servo: PB3 
+
+
+# Puzzle Box - Hints & Solution
+## Hints (for fun)
+Given: Each stage completion (3 total) will be associated with a victory tune, as well as a brief LED light show.
+
+### Hint (1): 
+The box plays a near complete tune, no question there; make haste and knock to – to finish it is the burden you bear.
+
+### Hint (2): 
+The box has many sides, it is of no surprise; what does the light confide? Rotate to abide?
+
+### Hint(3.1): 
+Your final steps await, the box’s prize is in your fate; darkness – you think – may be your friend, but its enemy may tend.
+
+### Hint(3.2):
+Thus far you found your tool, you’re on the path; but have you checked if there is a dual?
+
+## Solution
+(1) A buzzer plays an incomplete tune. Wait until it finishes. Knock once, wait half a second then knock again. A victory tune will be played
+(2) An LED will indicate which side needs to be up. First is bottom, then right side, then top. A victory tune will be played
+(3) LEDs will indicate which side’s photoresistor must be interacted with. You must shine a light to the bottom side photoresistor first, followed by the back, followed by both back and top (2 lights required, or 1 shining on both directly)
+(4) An extended victory tune is played, followed by a LED lightshow. The box servo unlocks shortly after and can be opened.
